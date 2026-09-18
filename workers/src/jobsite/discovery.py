@@ -145,8 +145,14 @@ def resolve(text: str) -> Match | None:
     return probe_name(text)
 
 
-def add_company(match: Match, name: str, source: str = "seed") -> int | None:
-    """Insert a discovered company. Returns its id, or None if already present."""
+def add_company(match: Match, name: str, source: str = "seed",
+                prefer_given_name: bool = False) -> int | None:
+    """Insert a discovered company. Returns its id, or None if already present.
+
+    prefer_given_name: use `name` verbatim rather than whatever the ATS reports.
+    Curated lists carry cleaner names than the APIs do — and Ashby returns none
+    at all.
+    """
     with cursor(commit=True) as cur:
         cur.execute(
             """INSERT INTO companies (name, ats, board_token, ats_config, source,
@@ -154,7 +160,8 @@ def add_company(match: Match, name: str, source: str = "seed") -> int | None:
                VALUES (%s,%s,%s,%s::jsonb,%s, now(), now())
                ON CONFLICT (ats, board_token) DO NOTHING
                RETURNING id""",
-            (match.company_name or name, match.ats, match.token,
+            (name if prefer_given_name else (match.company_name or name),
+             match.ats, match.token,
              __import__("json").dumps(match.config or {}), source),
         )
         row = cur.fetchone()

@@ -24,7 +24,8 @@ SUSPICIOUS_EMPTY_THRESHOLD = 5
 
 
 def load_companies(only: str | None = None, enabled_only: bool = True,
-                   stale_hours: int | None = None) -> list[Company]:
+                   stale_hours: int | None = None,
+                   limit: int | None = None) -> list[Company]:
     sql = ["SELECT id, name, ats::text AS ats, board_token, ats_config FROM companies WHERE TRUE"]
     params: list[Any] = []
     if enabled_only:
@@ -35,7 +36,11 @@ def load_companies(only: str | None = None, enabled_only: bool = True,
     if stale_hours is not None:
         sql.append("AND (last_synced_at IS NULL OR last_synced_at < now() - make_interval(hours => %s))")
         params.append(stale_hours)
+    # NULLS FIRST: never-synced boards are filled in before stale ones refresh.
     sql.append("ORDER BY last_synced_at NULLS FIRST, id")
+    if limit is not None:
+        sql.append("LIMIT %s")
+        params.append(limit)
 
     with cursor() as cur:
         cur.execute(" ".join(sql), params)
@@ -227,10 +232,11 @@ def sync_company(company: Company, trigger: str = "manual",
 
 
 def sync_all(only: str | None = None, stale_hours: int | None = None,
-             trigger: str = "manual", workers: int = 4) -> list[dict]:
+             trigger: str = "manual", workers: int = 4,
+             limit: int | None = None) -> list[dict]:
     from concurrent.futures import ThreadPoolExecutor
 
-    companies = load_companies(only=only, stale_hours=stale_hours)
+    companies = load_companies(only=only, stale_hours=stale_hours, limit=limit)
     results: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for res in pool.map(lambda c: sync_company(c, trigger=trigger), companies):

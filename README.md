@@ -42,13 +42,19 @@ exists, so this is the hard part. Two paths:
   highest job count wins.
 - `jobsite add-url` (and the admin page) takes a careers URL for the long tail,
   where the slug isn't the company name.
-- `jobsite import-boards` takes a file of board tokens you already have (e.g.
-  exported from a shared tracking sheet). Boards that 404 or return zero jobs
-  are skipped, so a stale list is harmless — of 351 tokens imported from one
-  such sheet, 261 were live and 90 were dead or empty.
+- `jobsite import-boards` takes board tokens you already have — either a plain
+  token list or a `name,slug,url` CSV. Every token is validated, and anything
+  that 404s or returns zero jobs is skipped, so a stale list is harmless.
 
-Measured: 41 of 41 seed names resolved automatically; the token import added
-another 261 boards.
+`db/seed/boards/` vendors Greenhouse, Ashby and Lever lists (11,881 companies)
+from [kalil0321/ats-scrapers](https://github.com/kalil0321/ats-scrapers) (MIT) —
+see `db/seed/boards/SOURCE.md`. Sample validation found ~87% still live. The CSV
+`name` column matters: Ashby's API returns no company name at all, so without it
+the board token is the only available label.
+
+Because a full sync of that many boards takes hours, `jobsite sync --limit N`
+syncs in chunks, never-synced boards first, so the dataset grows while staying
+usable throughout.
 
 ### Supported ATSs
 

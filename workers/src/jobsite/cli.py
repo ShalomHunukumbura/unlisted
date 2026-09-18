@@ -83,40 +83,59 @@ def import_boards(
     """
     _setup_logging(verbose)
     conn = connectors.get(ats)
-    tokens = [
-        line.strip() for line in path.read_text().splitlines()
-        if line.strip() and not line.startswith("#")
-    ]
+
+    # Accept either a plain token list or a name,slug,url CSV. The CSV form
+    # carries a real company name, which Ashby's API never returns.
+    names: dict[str, str] = {}
+    if path.suffix.lower() == ".csv":
+        import csv as _csv
+
+        with path.open(newline="") as fh:
+            for row in _csv.DictReader(fh):
+                slug = (row.get("slug") or "").strip()
+                if slug:
+                    names[slug] = (row.get("name") or slug).strip() or slug
+        tokens = list(names)
+    else:
+        tokens = [
+            line.strip() for line in path.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
     typer.echo(f"validating {len(tokens)} {ats} boards…")
 
-    live: list[tuple[str, int, list[str] | None]] = []
-    empty = dead = 0
-    with cf.ThreadPoolExecutor(max_workers=workers) as pool:
-        def check(tok: str):
-            try:
-                return tok, conn.validate_token(tok)
-            except Exception:  # noqa: BLE001
-                return tok, None
+    live_count = added = empty = dead = 0
+    total_jobs = 0
 
-        for tok, res in pool.map(check, tokens):
+    def check(tok: str):
+        try:
+            return tok, conn.validate_token(tok)
+        except Exception:  # noqa: BLE001
+            return tok, None
+
+    # Insert as we go and report progress: validating thousands of boards takes
+    # a while, and a run that dies at 90% should not lose everything.
+    with cf.ThreadPoolExecutor(max_workers=workers) as pool:
+        for i, (tok, res) in enumerate(pool.map(check, tokens), 1):
             if res is None or not res.ok:
                 dead += 1
             elif res.job_count > 0:
-                live.append((tok, res.job_count, res.sample_titles))
+                live_count += 1
+                total_jobs += res.job_count
+                match = discovery.Match(ats=ats, token=tok, job_count=res.job_count,
+                                        sample_titles=res.sample_titles)
+                if discovery.add_company(match, names.get(tok, tok), source="seed",
+                                         prefer_given_name=bool(names)):
+                    added += 1
             else:
                 empty += 1
 
-    added = 0
-    for tok, count, titles in live:
-        match = discovery.Match(ats=ats, token=tok, job_count=count,
-                                sample_titles=titles)
-        if discovery.add_company(match, tok, source="seed"):
-            added += 1
+            if i % 250 == 0 or i == len(tokens):
+                typer.echo(f"  {i}/{len(tokens)} · {live_count} live · "
+                           f"{added} added · {empty} empty · {dead} dead")
 
     typer.echo(
-        f"\n{len(live)} live ({sum(c for _, c, _ in live)} jobs) · "
-        f"{empty} empty · {dead} dead\n"
-        f"added {added} new, {len(live) - added} already tracked"
+        f"\n{live_count} live ({total_jobs} jobs) · {empty} empty · {dead} dead\n"
+        f"added {added} new, {live_count - added} already tracked"
     )
 
 
@@ -124,12 +143,14 @@ def import_boards(
 def sync_cmd(
     company: str = typer.Option(None, "--company", "-c", help="Name or token"),
     stale_hours: int = typer.Option(None, help="Only companies not synced in N hours"),
+    limit: int = typer.Option(None, help="Sync at most N companies (never-synced first)"),
     workers: int = typer.Option(4),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
     """Fetch boards and upsert jobs."""
     _setup_logging(verbose)
-    results = sync.sync_all(only=company, stale_hours=stale_hours, workers=workers)
+    results = sync.sync_all(only=company, stale_hours=stale_hours, workers=workers,
+                            limit=limit)
 
     ok = sum(r["status"] == "ok" for r in results)
     total = sum(r.get("fetched", 0) for r in results)
@@ -167,7 +188,18 @@ def stats() -> None:
         )
         top = cur.fetchall()
 
+    with cursor() as cur:
+        cur.execute(
+            """SELECT ats::text AS ats, count(*) n,
+                      count(*) FILTER (WHERE last_synced_at IS NULL) unsynced
+                 FROM companies WHERE enabled GROUP BY ats ORDER BY n DESC"""
+        )
+        by_ats = cur.fetchall()
+
     typer.echo(f"companies : {companies}")
+    for row in by_ats:
+        pending = f", {row['unsynced']} not yet synced" if row["unsynced"] else ""
+        typer.echo(f"  {row['ats']:12} {row['n']:5}{pending}")
     typer.echo(f"open jobs : {open_jobs}  (remote {remote}, with description {described})")
     typer.echo(f"closed    : {closed_jobs}")
     typer.echo("\ntop boards:")
