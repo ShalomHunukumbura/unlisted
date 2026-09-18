@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.next/
+.pytest_cache/
+.next/
+out/
+next-env.d.ts
+.env.local
