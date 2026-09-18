@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import FilterBar from "@/components/FilterBar";
+import { expLabel } from "@/lib/experience";
 import { facets, listJobs, type Filters } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function Home(props: PageProps<'/'>) {
     company: sp.company as string,
     department: sp.department as string,
     since: sp.since as string,
+    exp: sp.exp as string,
     cursor: sp.cursor as string,
   };
 
@@ -92,6 +94,13 @@ export default async function Home(props: PageProps<'/'>) {
               {job.remote && <Tag>remote</Tag>}
               {job.remote_scope === "hybrid" && <Tag>hybrid</Tag>}
               {job.department && <Tag>{job.department}</Tag>}
+              {expLabel(job.exp_min_years, job.exp_max_years) && (
+                <Tag>
+                  {expLabel(job.exp_min_years, job.exp_max_years)}
+                  {/* mark levels guessed from the title, not stated in the post */}
+                  {job.exp_source === "title" && "*"}
+                </Tag>
+              )}
             </div>
           </li>
         ))}

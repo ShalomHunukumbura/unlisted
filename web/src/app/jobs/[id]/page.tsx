@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { expLabel } from "@/lib/experience";
 import { getJob } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,19 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           {job.posted_at && (
             <span className="text-sm text-neutral-500">
               Posted {new Date(job.posted_at).toLocaleDateString()}
+            </span>
+          )}
+          {expLabel(job.exp_min_years, job.exp_max_years) && (
+            <span
+              className="text-sm text-neutral-500"
+              title={
+                job.exp_source === "description"
+                  ? "Stated in the job description"
+                  : "Inferred from the job title — check the description"
+              }
+            >
+              {expLabel(job.exp_min_years, job.exp_max_years)} experience
+              {job.exp_source === "title" && " (inferred)"}
             </span>
           )}
         </div>

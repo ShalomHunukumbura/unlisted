@@ -46,6 +46,11 @@ class NormalizedJob:
     description_html: str | None = None
     description_text: str | None = None
 
+    # Inferred, not supplied by any ATS. See experience.py.
+    exp_min_years: int | None = None
+    exp_max_years: int | None = None
+    exp_source: str | None = None
+
     posted_at: datetime | None = None
     ats_updated_at: datetime | None = None
 
@@ -60,6 +65,7 @@ class NormalizedJob:
                 self.employment_type, self.location_raw, sorted(self.locations),
                 self.remote, self.remote_scope, self.comp_min, self.comp_max,
                 self.comp_currency, self.description_text,
+                self.exp_min_years, self.exp_max_years,
                 self.posted_at.isoformat() if self.posted_at else None,
                 self.ats_updated_at.isoformat() if self.ats_updated_at else None,
             ],

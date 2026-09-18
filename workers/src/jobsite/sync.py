@@ -97,6 +97,7 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
         job.remote, job.remote_scope,
         job.comp_min, job.comp_max, job.comp_currency,
         job.description_html, job.description_text,
+        job.exp_min_years, job.exp_max_years, job.exp_source,
         job.posted_at, job.ats_updated_at,
         run_id, Jsonb(job.raw), digest,
     )
@@ -109,9 +110,10 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             remote, remote_scope,
             comp_min, comp_max, comp_currency,
             description_html, description_text,
+            exp_min_years, exp_max_years, exp_source,
             posted_at, ats_updated_at,
             last_seen_run, raw, content_hash
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (ats, company_id, external_id) DO UPDATE SET
             title=EXCLUDED.title,
             apply_url=EXCLUDED.apply_url,
@@ -131,6 +133,10 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             -- pass must not wipe what a content pass already fetched.
             description_html=COALESCE(EXCLUDED.description_html, jobs.description_html),
             description_text=COALESCE(EXCLUDED.description_text, jobs.description_text),
+            -- like descriptions, don't let a listings-only pass wipe these
+            exp_min_years=COALESCE(EXCLUDED.exp_min_years, jobs.exp_min_years),
+            exp_max_years=COALESCE(EXCLUDED.exp_max_years, jobs.exp_max_years),
+            exp_source=COALESCE(EXCLUDED.exp_source, jobs.exp_source),
             posted_at=COALESCE(EXCLUDED.posted_at, jobs.posted_at),
             ats_updated_at=EXCLUDED.ats_updated_at,
             last_seen_at=now(),
@@ -179,7 +185,7 @@ def sync_company(company: Company, trigger: str = "manual",
 
         for raw in raw_jobs:
             try:
-                job = conn.normalize(company, raw)
+                job = conn.normalize_job(company, raw)
             except Exception:  # noqa: BLE001 - one bad row must not fail the run
                 log.exception("normalize failed for %s", company.name)
                 continue

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, ClassVar, Iterable
 
+from ..experience import infer as infer_experience
 from ..models import Company, NormalizedJob
 
 
@@ -37,6 +38,18 @@ class Connector(ABC):
     @abstractmethod
     def normalize(self, company: Company, raw: dict[str, Any]) -> NormalizedJob:
         """Map one raw job onto the shared shape."""
+
+    def normalize_job(self, company: Company, raw: dict[str, Any]) -> NormalizedJob:
+        """normalize() plus the enrichment every connector should get.
+
+        Applied here rather than in each connector so a new ATS cannot silently
+        skip it.
+        """
+        job = self.normalize(company, raw)
+        if job.exp_min_years is None and job.exp_source is None:
+            for key, value in infer_experience(job.title, job.description_text).items():
+                setattr(job, key, value)
+        return job
 
     @abstractmethod
     def validate_token(self, token: str, config: dict | None = None) -> ValidationResult:

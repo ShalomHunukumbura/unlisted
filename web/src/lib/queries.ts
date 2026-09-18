@@ -13,6 +13,9 @@ export type Job = {
   region: string | null;
   remote: boolean;
   remote_scope: string | null;
+  exp_min_years: number | null;
+  exp_max_years: number | null;
+  exp_source: string | null;
   posted_at: string | null;
   closed_at: string | null;
   description_html?: string | null;
@@ -27,11 +30,20 @@ export type Filters = {
   company?: string;
   department?: string;
   since?: string;       // days
+  exp?: string;         // "0-1" | "1-2" | "3-5" | "5+" | "unknown"
   cursor?: string;      // "<posted_at ISO>|<id>"
   includeClosed?: boolean;
 };
 
 const PAGE_SIZE = 50;
+
+/** Filter buckets -> [minYears, maxYears]; null max = open ended. */
+export const EXP_BUCKETS: Record<string, [number, number | null]> = {
+  "0-1": [0, 1],
+  "1-2": [1, 2],
+  "3-5": [3, 5],
+  "5+": [5, null],
+};
 
 /** Build the shared WHERE clause. Params are appended to `params`. */
 function buildWhere(f: Filters, params: unknown[]): string {
@@ -63,6 +75,30 @@ function buildWhere(f: Filters, params: unknown[]): string {
     params.push(f.department);
     where.push(`j.department = $${params.length}`);
   }
+  if (f.exp) {
+    if (f.exp === "unknown") {
+      where.push("j.exp_min_years IS NULL");
+    } else {
+      const [lo, hi] = EXP_BUCKETS[f.exp] ?? [];
+      if (hi === null) {
+        // Open-ended bucket ("5+"): the job must genuinely want that much.
+        // Overlap alone would drag in a "1-8 years" role, which is not a 5+ job.
+        params.push(lo);
+        where.push(`j.exp_min_years >= $${params.length}`);
+      } else if (lo !== undefined) {
+        // Bounded bucket: match by overlap, so filtering "3-5" surfaces a job
+        // asking for 2-6 years and an open-ended "5+" one you'd still qualify
+        // for. exp_max_years IS NULL means open-ended.
+        params.push(hi);
+        const hiIdx = params.length;
+        params.push(lo);
+        where.push(
+          `j.exp_min_years IS NOT NULL AND j.exp_min_years <= $${hiIdx} ` +
+          `AND (j.exp_max_years IS NULL OR j.exp_max_years >= $${params.length})`,
+        );
+      }
+    }
+  }
   if (f.since) {
     params.push(Number(f.since));
     where.push(`j.posted_at > now() - make_interval(days => $${params.length})`);
@@ -79,7 +115,8 @@ export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: s
   let sql = `
     SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
            j.department, j.location_raw, j.locations, j.country, j.region,
-           j.remote, j.remote_scope, j.posted_at, j.closed_at
+           j.remote, j.remote_scope, j.posted_at, j.closed_at,
+           j.exp_min_years, j.exp_max_years, j.exp_source
       FROM jobs j
       JOIN companies c ON c.id = j.company_id
       ${buildWhere(f, params)}`;
@@ -111,6 +148,7 @@ export async function getJob(id: string): Promise<Job | null> {
     `SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
             j.department, j.location_raw, j.locations, j.country, j.region,
             j.remote, j.remote_scope, j.posted_at, j.closed_at,
+            j.exp_min_years, j.exp_max_years, j.exp_source,
             j.description_html, j.description_text
        FROM jobs j JOIN companies c ON c.id = j.company_id
       WHERE j.id = $1`,

@@ -75,6 +75,15 @@ export default function FilterBar({ companies, countries, departments }: Props) 
         ))}
       </select>
 
+      <select className={select} value={params.get("exp") ?? ""} onChange={(e) => set("exp", e.target.value)}>
+        <option value="">Any experience</option>
+        <option value="0-1">0–1 years</option>
+        <option value="1-2">1–2 years</option>
+        <option value="3-5">3–5 years</option>
+        <option value="5+">5+ years</option>
+        <option value="unknown">Not stated</option>
+      </select>
+
       <select className={select} value={params.get("since") ?? ""} onChange={(e) => set("since", e.target.value)}>
         <option value="">Any time</option>
         <option value="1">Past 24h</option>
