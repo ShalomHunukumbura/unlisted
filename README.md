@@ -117,11 +117,12 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 48 tests, offline (connector fixtures under workers/tests/fixtures)
+make test    # 75 tests, offline (connector fixtures under workers/tests/fixtures)
 ```
 
-Covers location normalization, HTML sanitization, connector normalization, and
-URL parsing — the parts where real-world data is messy enough to break things.
+Covers location normalization, HTML sanitization, connector normalization,
+experience inference, and URL parsing — the parts where real-world data is messy
+enough to break things.
 
 ## Being a good citizen
 
