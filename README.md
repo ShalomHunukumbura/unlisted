@@ -42,8 +42,13 @@ exists, so this is the hard part. Two paths:
   highest job count wins.
 - `jobsite add-url` (and the admin page) takes a careers URL for the long tail,
   where the slug isn't the company name.
+- `jobsite import-boards` takes a file of board tokens you already have (e.g.
+  exported from a shared tracking sheet). Boards that 404 or return zero jobs
+  are skipped, so a stale list is harmless — of 351 tokens imported from one
+  such sheet, 261 were live and 90 were dead or empty.
 
-Measured: 41 of 41 seed names resolved automatically.
+Measured: 41 of 41 seed names resolved automatically; the token import added
+another 261 boards.
 
 ### Supported ATSs
 
@@ -109,6 +114,7 @@ partial index.
 ```bash
 jobsite discover --seeds ../db/seed/companies.txt
 jobsite add-url https://jobs.ashbyhq.com/linear     # or just: jobsite add-url Linear
+jobsite import-boards db/seed/ashby_boards.txt --ats ashby
 jobsite sync [--company X] [--stale-hours 6]
 jobsite stats
 python -m jobsite.scheduler                          # sync every 6h

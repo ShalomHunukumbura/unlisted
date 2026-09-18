@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-from . import discovery, sync
+from . import connectors, discovery, sync
 from .db import cursor
 
 app = typer.Typer(add_completion=False, help="ATS job aggregator")
@@ -66,6 +66,58 @@ def add_url(url: str) -> None:
     new_id = discovery.add_company(match, match.company_name or match.token,
                                    source="admin_paste")
     typer.echo("added" if new_id else "already tracked")
+
+
+@app.command("import-boards")
+def import_boards(
+    path: Path = typer.Argument(..., help="File of board tokens, one per line"),
+    ats: str = typer.Option("ashby", help="Which ATS these tokens belong to"),
+    workers: int = typer.Option(6, help="Parallel validations"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Import a list of known board tokens for one ATS.
+
+    Unlike `discover`, which guesses slugs from company names, this takes tokens
+    you already have (e.g. exported from a shared tracking sheet). Boards that
+    404 or return zero jobs are skipped, so a stale list is harmless.
+    """
+    _setup_logging(verbose)
+    conn = connectors.get(ats)
+    tokens = [
+        line.strip() for line in path.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    typer.echo(f"validating {len(tokens)} {ats} boards…")
+
+    live: list[tuple[str, int, list[str] | None]] = []
+    empty = dead = 0
+    with cf.ThreadPoolExecutor(max_workers=workers) as pool:
+        def check(tok: str):
+            try:
+                return tok, conn.validate_token(tok)
+            except Exception:  # noqa: BLE001
+                return tok, None
+
+        for tok, res in pool.map(check, tokens):
+            if res is None or not res.ok:
+                dead += 1
+            elif res.job_count > 0:
+                live.append((tok, res.job_count, res.sample_titles))
+            else:
+                empty += 1
+
+    added = 0
+    for tok, count, titles in live:
+        match = discovery.Match(ats=ats, token=tok, job_count=count,
+                                sample_titles=titles)
+        if discovery.add_company(match, tok, source="seed"):
+            added += 1
+
+    typer.echo(
+        f"\n{len(live)} live ({sum(c for _, c, _ in live)} jobs) · "
+        f"{empty} empty · {dead} dead\n"
+        f"added {added} new, {len(live) - added} already tracked"
+    )
 
 
 @app.command("sync")
