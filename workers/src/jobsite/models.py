@@ -38,6 +38,8 @@ class NormalizedJob:
     region: str | None = None
     remote: bool = False
     remote_scope: str | None = None
+    # Where a remote job is open to: anywhere | region | country | None.
+    open_to: str | None = None
 
     comp_min: float | None = None
     comp_max: float | None = None
@@ -63,7 +65,8 @@ class NormalizedJob:
             [
                 self.title, self.apply_url, self.department, self.team,
                 self.employment_type, self.location_raw, sorted(self.locations),
-                self.remote, self.remote_scope, self.comp_min, self.comp_max,
+                self.remote, self.remote_scope, self.open_to,
+                self.comp_min, self.comp_max,
                 self.comp_currency, self.description_text,
                 self.exp_min_years, self.exp_max_years,
                 self.posted_at.isoformat() if self.posted_at else None,

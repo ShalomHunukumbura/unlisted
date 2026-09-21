@@ -55,6 +55,22 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
               Posted {new Date(job.posted_at).toLocaleDateString()}
             </span>
           )}
+          {job.remote && job.open_to && (
+            <span
+              className="text-sm text-neutral-500"
+              title={
+                job.open_to === "anywhere"
+                  ? "No geographic restriction stated on the posting"
+                  : "This remote role names a location — check eligibility before applying"
+              }
+            >
+              {job.open_to === "anywhere"
+                ? "Remote, open to anywhere"
+                : job.open_to === "region"
+                  ? `Remote within ${job.region ?? "a region"}`
+                  : `Remote, ${job.country ?? "location"}-restricted`}
+            </span>
+          )}
           {expLabel(job.exp_min_years, job.exp_max_years) && (
             <span
               className="text-sm text-neutral-500"

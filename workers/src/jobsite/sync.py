@@ -99,7 +99,7 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
         company.id, company.ats, job.external_id, job.title, job.apply_url,
         job.department, job.team, job.employment_type,
         job.location_raw, job.locations, job.country, job.region,
-        job.remote, job.remote_scope,
+        job.remote, job.remote_scope, job.open_to,
         job.comp_min, job.comp_max, job.comp_currency,
         job.description_html, job.description_text,
         job.exp_min_years, job.exp_max_years, job.exp_source,
@@ -112,13 +112,13 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             company_id, ats, external_id, title, apply_url,
             department, team, employment_type,
             location_raw, locations, country, region,
-            remote, remote_scope,
+            remote, remote_scope, open_to,
             comp_min, comp_max, comp_currency,
             description_html, description_text,
             exp_min_years, exp_max_years, exp_source,
             posted_at, ats_updated_at,
             last_seen_run, raw, content_hash
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (ats, company_id, external_id) DO UPDATE SET
             title=EXCLUDED.title,
             apply_url=EXCLUDED.apply_url,
@@ -131,6 +131,7 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             region=EXCLUDED.region,
             remote=EXCLUDED.remote,
             remote_scope=EXCLUDED.remote_scope,
+            open_to=EXCLUDED.open_to,
             comp_min=EXCLUDED.comp_min,
             comp_max=EXCLUDED.comp_max,
             comp_currency=EXCLUDED.comp_currency,

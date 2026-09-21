@@ -46,8 +46,10 @@ export default function FilterBar({ companies, countries, departments }: Props) 
       />
 
       <select className={select} value={params.get("remote") ?? ""} onChange={(e) => set("remote", e.target.value)}>
-        <option value="">Anywhere</option>
-        <option value="1">Remote</option>
+        <option value="">Any location</option>
+        <option value="anywhere">Remote — anywhere 🌍</option>
+        <option value="apac">Remote — open to Sri Lanka</option>
+        <option value="1">Remote (any)</option>
         <option value="hybrid">Hybrid</option>
         <option value="onsite">On-site</option>
       </select>

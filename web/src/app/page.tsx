@@ -91,7 +91,17 @@ export default async function Home(props: PageProps<'/'>) {
                 {job.company_name}
               </span>
               {job.location_raw && <span>· {job.location_raw}</span>}
-              {job.remote && <Tag>remote</Tag>}
+              {job.remote && (
+                <Tag>
+                  {job.open_to === "anywhere"
+                    ? "remote · anywhere 🌍"
+                    : job.open_to === "region"
+                      ? `remote · ${job.region ?? "region"}`
+                      : job.open_to === "country"
+                        ? `remote · ${job.country ?? "restricted"}`
+                        : "remote"}
+                </Tag>
+              )}
               {job.remote_scope === "hybrid" && <Tag>hybrid</Tag>}
               {job.department && <Tag>{job.department}</Tag>}
               {expLabel(job.exp_min_years, job.exp_max_years) && (

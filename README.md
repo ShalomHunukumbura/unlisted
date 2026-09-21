@@ -66,6 +66,31 @@ usable throughout.
 | SmartRecruiters / Workday | public / undocumented | per-job fetch | not yet |
 | Jobvite / iCIMS / Teamtailor | key- or partner-gated | — | not planned |
 
+## Remote: open to where?
+
+`remote = true` does not tell you whether you can apply. "Remote - Portugal" and
+"Remote: United States" are remote *and* geographically restricted — useless if
+you are not in those places. `open_to`
+(`workers/src/jobsite/remote_scope.py`) answers the narrower question:
+
+| value | meaning |
+|---|---|
+| `anywhere` | no geographic restriction stated |
+| `region` | restricted to a multi-country region (EU, APAC, LATAM…) |
+| `country` | restricted to a single country |
+| `NULL` | not remote, or undetermined |
+
+The classifier is **deliberately pessimistic**: a remote job naming any place we
+recognize counts as restricted. The stakes are asymmetric — showing a job you
+cannot apply to wastes real time, while hiding a vague one costs a little
+recall. So `"Argentina - Fully Remote"` and `"Anywhere in Belgium"` are
+`country`, not `anywhere`, despite the unrestricted-sounding wording.
+
+The location dropdown exposes **Remote — anywhere** (strictly unrestricted) and
+**Remote — open to Sri Lanka** (unrestricted + APAC-wide + India/Sri Lanka).
+Every job row shows where it is open to, e.g. `remote · anywhere 🌍` or
+`remote · PT`.
+
 ## Experience level
 
 No ATS exposes a structured experience field, so it is inferred at ingestion

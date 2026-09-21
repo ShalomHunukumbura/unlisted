@@ -13,6 +13,7 @@ export type Job = {
   region: string | null;
   remote: boolean;
   remote_scope: string | null;
+  open_to: string | null;
   exp_min_years: number | null;
   exp_max_years: number | null;
   exp_source: string | null;
@@ -24,7 +25,7 @@ export type Job = {
 
 export type Filters = {
   q?: string;
-  remote?: string;      // "1" = remote only, "hybrid", "onsite"
+  remote?: string;      // "1" | "anywhere" | "apac" | "hybrid" | "onsite"
   country?: string;
   region?: string;
   company?: string;
@@ -56,7 +57,18 @@ function buildWhere(f: Filters, params: unknown[]): string {
     where.push(`j.search_tsv @@ websearch_to_tsquery('english', $${params.length})`);
   }
   if (f.remote === "1") where.push("j.remote");
-  else if (f.remote === "hybrid") where.push("j.remote_scope = 'hybrid'");
+  else if (f.remote === "anywhere") {
+    // Truly unrestricted: no country or region named on the posting.
+    where.push("j.remote AND j.open_to = 'anywhere'");
+  } else if (f.remote === "apac") {
+    // Applicable from Sri Lanka: unrestricted, or open to an APAC-wide region,
+    // or explicitly naming a South Asian country.
+    where.push(
+      "j.remote AND (j.open_to = 'anywhere' " +
+      "OR (j.open_to = 'region' AND j.region = 'APAC') " +
+      "OR (j.open_to = 'country' AND j.country IN ('LK','IN')))",
+    );
+  } else if (f.remote === "hybrid") where.push("j.remote_scope = 'hybrid'");
   else if (f.remote === "onsite") where.push("NOT j.remote AND j.remote_scope IS DISTINCT FROM 'hybrid'");
 
   if (f.country) {
@@ -115,7 +127,7 @@ export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: s
   let sql = `
     SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
            j.department, j.location_raw, j.locations, j.country, j.region,
-           j.remote, j.remote_scope, j.posted_at, j.closed_at,
+           j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
            j.exp_min_years, j.exp_max_years, j.exp_source
       FROM jobs j
       JOIN companies c ON c.id = j.company_id
@@ -147,7 +159,7 @@ export async function getJob(id: string): Promise<Job | null> {
   const rows = await query<Job>(
     `SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
             j.department, j.location_raw, j.locations, j.country, j.region,
-            j.remote, j.remote_scope, j.posted_at, j.closed_at,
+            j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
             j.exp_min_years, j.exp_max_years, j.exp_source,
             j.description_html, j.description_text
        FROM jobs j JOIN companies c ON c.id = j.company_id
