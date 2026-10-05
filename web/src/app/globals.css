@@ -1,27 +1,100 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/*
+ * Warm monochrome. Colour is only used for meaning: the pastel pairs mark how
+ * open a remote role is (anywhere / a region / one country).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --canvas: #fbfbfa;
+  --surface: #ffffff;
+  --hover: #f4f3f0;
+  --line: #eaeaea;
+  --ink: #2f3437;
+  --ink-strong: #111111;
+  --muted: #787774;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --green-bg: #edf3ec;
+  --green-ink: #346538;
+  --blue-bg: #e1f3fe;
+  --blue-ink: #1f6c9f;
+  --yellow-bg: #fbf3db;
+  --yellow-ink: #956400;
+  --red-bg: #fdebec;
+  --red-ink: #9f2f2d;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #191918;
+    --surface: #202020;
+    --hover: #252524;
+    --line: #2f2f2d;
+    --ink: #d4d3d0;
+    --ink-strong: #f1f0ed;
+    --muted: #9b9a97;
+
+    --green-bg: #1e2b20;
+    --green-ink: #94c49a;
+    --blue-bg: #172735;
+    --blue-ink: #8cc1e6;
+    --yellow-bg: #30290f;
+    --yellow-ink: #dcb664;
+    --red-bg: #361d1d;
+    --red-ink: #e9a19f;
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-muted: var(--muted);
+  --color-green-bg: var(--green-bg);
+  --color-green-ink: var(--green-ink);
+  --color-blue-bg: var(--blue-bg);
+  --color-blue-ink: var(--blue-ink);
+  --color-yellow-bg: var(--yellow-bg);
+  --color-yellow-ink: var(--yellow-ink);
+  --color-red-bg: var(--red-bg);
+  --color-red-ink: var(--red-ink);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-instrument-serif);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--yellow-bg);
+  color: var(--ink-strong);
+}
+
+/* Visible for keyboard users, invisible for mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--ink-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Job descriptions come from many companies' editors: keep them calm. */
+.prose-job {
+  --tw-prose-body: var(--ink);
+  --tw-prose-headings: var(--ink-strong);
+  --tw-prose-bold: var(--ink-strong);
+  --tw-prose-links: var(--ink-strong);
+  --tw-prose-bullets: var(--muted);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-hr: var(--line);
+  --tw-prose-quotes: var(--ink);
+  --tw-prose-quote-borders: var(--line);
+  --tw-prose-th-borders: var(--line);
+  --tw-prose-td-borders: var(--line);
 }

@@ -1,3 +1,6 @@
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
+
 import { query } from "./db";
 
 export type Job = {
@@ -129,7 +132,18 @@ function buildWhere(f: Filters, params: unknown[]): string {
  * Keyset pagination on (posted_at, id) — not OFFSET, which degrades badly once
  * the table is large. Served directly by jobs_open_posted_idx.
  */
-export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: string | null }> {
+/** Timestamps as ISO strings: what <time dateTime> wants, and what survives the cache. */
+function iso(value: unknown): string | null {
+  return value instanceof Date ? value.toISOString() : (value as string | null);
+}
+
+// The data changes once a day (the sync), so these are cached across requests
+// and instances; a count up to 30 minutes old is fine. Bump the key suffix
+// when a query's shape changes.
+const FACETS_TTL = 1800;
+const LIST_TTL = 600;
+
+async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: string | null }> {
   const params: unknown[] = [];
   let sql = `
     SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
@@ -150,7 +164,11 @@ export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: s
   params.push(PAGE_SIZE + 1);
   sql += ` ORDER BY j.posted_at DESC NULLS LAST, j.id DESC LIMIT $${params.length}`;
 
-  const rows = await query<Job>(sql, params);
+  const rows = (await query<Job>(sql, params)).map((j) => ({
+    ...j,
+    posted_at: iso(j.posted_at),
+    closed_at: iso(j.closed_at),
+  }));
   const hasMore = rows.length > PAGE_SIZE;
   const jobs = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
   const last = jobs.at(-1);
@@ -162,7 +180,16 @@ export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: s
   return { jobs, nextCursor };
 }
 
-export async function getJob(id: string): Promise<Job | null> {
+const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v1"], { revalidate: LIST_TTL });
+
+/** Text searches aren't cached: endless one-off combinations would crowd out the rest. */
+export function listJobs(f: Filters) {
+  return f.q ? listJobsUncached(f) : listJobsCached(f);
+}
+
+// cache(): the job page and its generateMetadata both ask for the same job.
+export const getJob = cache(async function getJob(id: string): Promise<Job | null> {
+  if (!/^\d{1,18}$/.test(id)) return null; // not a bigint: Postgres would throw
   const rows = await query<Job>(
     `SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
             j.department, j.location_raw, j.locations, j.country, j.region,
@@ -173,34 +200,49 @@ export async function getJob(id: string): Promise<Job | null> {
       WHERE j.id = $1`,
     [id],
   );
-  return rows[0] ?? null;
-}
+  const job = rows[0];
+  return job ? { ...job, posted_at: iso(job.posted_at), closed_at: iso(job.closed_at) } : null;
+});
 
-export async function facets() {
-  const [companies, countries, departments, totals] = await Promise.all([
+export const facets = unstable_cache(
+  async () => {
+    const [countries, departments, totals] = await Promise.all([
+      query<{ country: string; n: string }>(
+        `SELECT country, count(*) n FROM jobs j
+          WHERE closed_at IS NULL AND ${FRESH} AND country IS NOT NULL
+          GROUP BY country ORDER BY n DESC LIMIT 25`,
+      ),
+      query<{ department: string; n: string }>(
+        `SELECT department, count(*) n FROM jobs j
+          WHERE closed_at IS NULL AND ${FRESH} AND department IS NOT NULL
+          GROUP BY department ORDER BY n DESC LIMIT 25`,
+      ),
+      query<{ open: string; remote: string; companies: string }>(
+        `SELECT count(*) FILTER (WHERE closed_at IS NULL) open,
+                count(*) FILTER (WHERE closed_at IS NULL AND remote) remote,
+                (SELECT count(*) FROM companies WHERE enabled) companies
+           FROM jobs j WHERE ${FRESH}`,
+      ),
+    ]);
+    return { countries, departments, totals: totals[0] };
+  },
+  ["facets-v2"],
+  { revalidate: FACETS_TTL },
+);
+
+/**
+ * Every company with an open role, most jobs first. Thousands of names, so the
+ * page doesn't embed them: the company filter fetches /api/companies on focus.
+ */
+export const companyOptions = unstable_cache(
+  async () =>
     query<{ name: string; n: string }>(
       `SELECT c.name, count(*) n FROM jobs j JOIN companies c ON c.id=j.company_id
         WHERE j.closed_at IS NULL AND ${FRESH} GROUP BY c.name ORDER BY n DESC`,
     ),
-    query<{ country: string; n: string }>(
-      `SELECT country, count(*) n FROM jobs j
-        WHERE closed_at IS NULL AND ${FRESH} AND country IS NOT NULL
-        GROUP BY country ORDER BY n DESC LIMIT 25`,
-    ),
-    query<{ department: string; n: string }>(
-      `SELECT department, count(*) n FROM jobs j
-        WHERE closed_at IS NULL AND ${FRESH} AND department IS NOT NULL
-        GROUP BY department ORDER BY n DESC LIMIT 25`,
-    ),
-    query<{ open: string; remote: string; companies: string }>(
-      `SELECT count(*) FILTER (WHERE closed_at IS NULL) open,
-              count(*) FILTER (WHERE closed_at IS NULL AND remote) remote,
-              (SELECT count(*) FROM companies WHERE enabled) companies
-         FROM jobs j WHERE ${FRESH}`,
-    ),
-  ]);
-  return { companies, countries, departments, totals: totals[0] };
-}
+  ["company-options-v1"],
+  { revalidate: FACETS_TTL },
+);
 
 export async function listCompanies() {
   return query(
