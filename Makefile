@@ -42,8 +42,9 @@ deploy-migrate:  ## apply migrations to the deployed database
 push-companies:  ## copy the companies list to the deployed database (new ones only)
 	@test -n "$(DEPLOY_URL)" || (echo "set DEPLOY_URL=postgresql://..." && exit 1)
 	@# One shell inside the container: piping between two `docker compose exec`
-	@# processes truncated the stream mid-statement.
+	@# processes truncated the stream mid-statement. 1000 rows per INSERT, because
+	@# one INSERT per row is one network round trip each to a remote database.
 	docker compose exec -T -e DEPLOY_URL="$(DEPLOY_URL)" postgres sh -c \
-	  'pg_dump -U jobsite -d jobsite --data-only --inserts --on-conflict-do-nothing \
+	  'pg_dump -U jobsite -d jobsite --data-only --rows-per-insert=1000 --on-conflict-do-nothing \
 	     --table=companies | psql "$$DEPLOY_URL" -q -v ON_ERROR_STOP=1'
 	@echo "companies pushed"
