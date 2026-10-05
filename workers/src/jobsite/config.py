@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     # The full ATS payload, for debugging connectors. Never read by the app, and
     # ~5 KB a job, so the deployment turns it off to fit a free-tier database.
     store_raw: bool = True
-    # One sync_runs row per board per run (~125k a day when hourly). Older rows
-    # are pruned so the log can't fill a free-tier database.
-    sync_runs_keep_days: int = 2
+    # One sync_runs row per board per run (~5k an hour when hourly, ~280 bytes
+    # each). Older rows are pruned so the log can't fill a free-tier database.
+    sync_runs_keep_hours: int = 6
 
 
 settings = Settings()

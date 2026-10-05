@@ -67,7 +67,21 @@ function buildWhere(f: Filters, params: unknown[]): string {
 
   if (f.q) {
     params.push(f.q);
-    where.push(`j.search_tsv @@ websearch_to_tsquery('english', $${params.length})`);
+    // Description words are stored without positions (migration 0008), so a
+    // phrase can only match in the title, location or team. Quoted phrases
+    // keep that strict meaning. Unquoted, websearch_to_tsquery still makes a
+    // phrase out of hyphenated words ("full-stack" -> 'full-stack' <-> 'full'
+    // <-> 'stack'), so those become plain AND: 'full-stack' is its own lexeme
+    // and only appears where the text said full-stack.
+    // Quoted searches go to the small title/location/team vector, which keeps
+    // positions and has its own index.
+    if (f.q.includes('"')) {
+      where.push(`j.title_tsv @@ websearch_to_tsquery('english', $${params.length})`);
+    } else {
+      where.push(
+        `j.search_tsv @@ regexp_replace(websearch_to_tsquery('english', $${params.length})::text, '<[0-9]*-?>', '&', 'g')::tsquery`,
+      );
+    }
   }
   if (f.remote === "1") where.push("j.remote");
   else if (f.remote === "anywhere") {

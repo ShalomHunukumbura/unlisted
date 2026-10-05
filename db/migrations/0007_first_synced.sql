@@ -6,7 +6,7 @@
 -- records that moment per board, so the page can tell the two cases apart.
 --
 -- It lives on companies rather than being derived from sync_runs because sync
--- logs are now pruned after a couple of days (hourly runs add ~125k rows a day).
+-- logs are now pruned after a few hours (hourly runs add ~5k rows an hour).
 
 ALTER TABLE companies ADD COLUMN first_synced_at timestamptz;
 

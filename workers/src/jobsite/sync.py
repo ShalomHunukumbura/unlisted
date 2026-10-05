@@ -57,7 +57,7 @@ def is_too_old(job: NormalizedJob, cutoff: datetime) -> bool:
 def prune(cutoff: datetime | None = None, company_id: int | None = None) -> int:
     """Delete jobs older than the cutoff (for one company, or all). Returns how many.
 
-    Also drops sync logs older than settings.sync_runs_keep_days.
+    Also drops sync logs older than settings.sync_runs_keep_hours.
     """
     with cursor(commit=True) as cur:
         cur.execute(
@@ -67,9 +67,9 @@ def prune(cutoff: datetime | None = None, company_id: int | None = None) -> int:
         )
         pruned = cur.rowcount
         cur.execute(
-            "DELETE FROM sync_runs WHERE started_at < now() - make_interval(days => %s) "
+            "DELETE FROM sync_runs WHERE started_at < now() - make_interval(hours => %s) "
             "AND (%s::bigint IS NULL OR company_id = %s)",
-            (settings.sync_runs_keep_days, company_id, company_id),
+            (settings.sync_runs_keep_hours, company_id, company_id),
         )
         return pruned
 

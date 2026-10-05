@@ -176,12 +176,15 @@ partial index.
 The public copy runs on free tiers, with the same schema and sync code as local:
 
 ```
-GitHub Actions (hourly) ──sync──> Neon Postgres (free, 1 GB) <──reads── Vercel (Next.js, read-only)
+GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──reads── Vercel (Next.js, read-only)
 ```
 
-- **Database:** Neon. Two weeks of every board is about 470 MB once the raw ATS
-  payloads are left out (`STORE_RAW=false`); see `db/migrations/0006_lean_storage.sql`
-  for what was cut and measured.
+- **Database:** Neon's free tier caps a project at 512 MB. Two weeks of every board
+  is about 380 MB once raw ATS payloads are left out (`STORE_RAW=false`), description
+  words are indexed without positions, and sync logs are kept for 6 hours; see
+  migrations 0006 and 0008 for what was cut and measured. A schema change that
+  rewrites the jobs table needs `db/deploy/reset-jobs.sql` first (it refills on the
+  next sync).
 - **Sync:** `.github/workflows/sync.yml` runs every hour (at :17, sometimes a little
   late: GitHub schedules are best-effort). `jobsite sync --due` checks boards with open
   jobs every run and quiet boards every ~6 hours, about 5,200 of 7,733 per run. It
