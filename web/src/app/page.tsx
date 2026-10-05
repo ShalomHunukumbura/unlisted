@@ -5,7 +5,7 @@ import FilterBar from "@/components/FilterBar";
 import { Tag, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
 import { READ_ONLY } from "@/lib/mode";
-import { MAX_AGE_DAYS, facets, listJobs, type Filters } from "@/lib/queries";
+import { MAX_AGE_DAYS, facets, fresh, hasOpenJobs, listJobs, type Filters } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,34 @@ function timeAgo(iso: string | null): string {
 }
 
 const n = (value: string | number) => Number(value).toLocaleString("en-US");
+
+/** Shown while the database is empty, e.g. during a full refill after maintenance. */
+function Refreshing() {
+  return (
+    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-10 sm:pt-16">
+      <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">Unlisted</h1>
+      <section className="mt-10 max-w-xl rounded-xl border border-line bg-surface p-6 sm:p-8">
+        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.06em] text-muted">
+          <span aria-hidden className="size-2 animate-pulse rounded-full bg-yellow-ink" />
+          Refreshing
+        </p>
+        <h2 className="mt-3 font-serif text-3xl leading-tight tracking-[-0.01em] text-ink-strong">
+          The job list is being rebuilt.
+        </h2>
+        <p className="mt-3 text-pretty text-[15px] leading-relaxed text-ink">
+          Unlisted is re-reading every company career page from scratch. Jobs come back in about half an
+          hour, all at once when the refresh finishes.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-block rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
+        >
+          Check again
+        </Link>
+      </section>
+    </main>
+  );
+}
 
 // searchParams is a Promise in Next.js 16 and must be awaited.
 export default async function Home(props: PageProps<'/'>) {
@@ -33,7 +61,12 @@ export default async function Home(props: PageProps<'/'>) {
     cursor: sp.cursor as string,
   };
 
-  const [{ jobs, nextCursor }, fc] = await Promise.all([listJobs(f), facets()]);
+  if (!(await hasOpenJobs())) return <Refreshing />;
+
+  let [{ jobs, nextCursor }, fc] = await Promise.all([listJobs(f), facets()]);
+  // Jobs exist, so a cached "nothing" is from before a refill: ask again.
+  if (Number(fc.totals.open) === 0) fc = await fresh.facets();
+  if (jobs.length === 0 && !f.cursor) ({ jobs, nextCursor } = await fresh.listJobs(f));
 
   const nextParams = new URLSearchParams(
     Object.entries(sp).flatMap(([k, v]) =>

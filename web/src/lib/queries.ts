@@ -248,8 +248,7 @@ export async function getJobRef(id: string) {
   return rows[0] ?? null;
 }
 
-export const facets = unstable_cache(
-  async () => {
+async function facetsUncached() {
     const [countries, departments, totals] = await Promise.all([
       query<{ country: string; n: string }>(
         `SELECT country, count(*) n FROM jobs j
@@ -269,24 +268,40 @@ export const facets = unstable_cache(
       ),
     ]);
     return { countries, departments, totals: totals[0] };
-  },
-  ["facets-v2"],
-  { revalidate: FACETS_TTL },
-);
+}
+
+export const facets = unstable_cache(facetsUncached, ["facets-v2"], { revalidate: FACETS_TTL });
 
 /**
  * Every company with an open role, most jobs first. Thousands of names, so the
  * page doesn't embed them: the company filter fetches /api/companies on focus.
  */
-export const companyOptions = unstable_cache(
-  async () =>
-    query<{ name: string; n: string }>(
-      `SELECT c.name, count(*) n FROM jobs j JOIN companies c ON c.id=j.company_id
-        WHERE j.closed_at IS NULL AND ${FRESH} GROUP BY c.name ORDER BY n DESC`,
-    ),
-  ["company-options-v1"],
-  { revalidate: FACETS_TTL },
-);
+async function companyOptionsUncached() {
+  return query<{ name: string; n: string }>(
+    `SELECT c.name, count(*) n FROM jobs j JOIN companies c ON c.id=j.company_id
+      WHERE j.closed_at IS NULL AND ${FRESH} GROUP BY c.name ORDER BY n DESC`,
+  );
+}
+
+export const companyOptions = unstable_cache(companyOptionsUncached, ["company-options-v1"], {
+  revalidate: FACETS_TTL,
+});
+
+/**
+ * Uncached and cheap (stops at the first row): is there anything to show?
+ * False while the database is being refilled, which shows the "refreshing"
+ * card. It also lets the page refuse a cached empty answer once jobs are back:
+ * the caches above can hold "nothing" for up to 30 minutes after a refill.
+ */
+export async function hasOpenJobs(): Promise<boolean> {
+  const rows = await query<{ any: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM jobs j WHERE j.closed_at IS NULL AND ${FRESH}) AS any`,
+  );
+  return rows[0]?.any ?? false;
+}
+
+/** The uncached versions, for when a cached empty answer is known to be stale. */
+export const fresh = { facets: facetsUncached, listJobs: listJobsUncached, companyOptions: companyOptionsUncached };
 
 export async function listCompanies() {
   return query(
