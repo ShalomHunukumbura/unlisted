@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "17 0 * * *"    # 00:17 UTC (05:47 in Sri Lanka), off the busy :00
   workflow_dispatch:
+  # Also when this file changes, so an edit is tested right away (and so GitHub
+  # registers the workflow: one with only schedule/dispatch wasn't picked up).
+  push:
+    branches: [master]
+    paths: [.github/workflows/sync.yml]
 
 concurrency:
   group: sync
