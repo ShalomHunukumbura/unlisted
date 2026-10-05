@@ -1,14 +1,15 @@
 # Unlisted
 
-**Jobs that never make it to job boards: fresh roles from 7,700+ company career
-pages, in one search.**
+**Fresh roles straight from 7,700+ company career pages, in one search, including
+the ones that never reach job boards.**
 
 **Live: [unlisted-tau.vercel.app](https://unlisted-tau.vercel.app)**
 
-Many companies post
-roles only on their own careers page, hosted by an applicant tracking system
-(Greenhouse, Ashby, Lever), and never on LinkedIn or job boards. You only find them
-if you already know the company. This pulls every one of those boards into a single
+Every company's careers page is
+hosted by an applicant tracking system (Greenhouse, Ashby, Lever), and that's where
+a role appears first. Some are cross-posted to LinkedIn and job boards later; many
+never are, and you only find them if you already know the company. Unlisted reads
+the career pages directly; it doesn't check whether a role is also on other sites. This pulls every one of those boards into a single
 searchable list, keeps only the **past two weeks**, and links each job straight to
 the employer's own apply page.
 
@@ -23,7 +24,9 @@ the employer's own apply page.
   the first full sync, 82% were posted over two weeks ago. Those are never stored.
 
 It's a discovery layer, not an application proxy: no accounts, no tracking, and
-every listing links to the real posting.
+every listing links to the real posting. Each job page checks live with the
+employer's board that the role is still open, and shows when Unlisted first saw it
+next to the employer's posted date.
 
 (The code still calls itself `jobsite`: that's the CLI command and Python package.)
 
@@ -173,16 +176,20 @@ partial index.
 The public copy runs on free tiers, with the same schema and sync code as local:
 
 ```
-GitHub Actions (daily) ──sync──> Neon Postgres (free, 1 GB) <──reads── Vercel (Next.js, read-only)
+GitHub Actions (hourly) ──sync──> Neon Postgres (free, 1 GB) <──reads── Vercel (Next.js, read-only)
 ```
 
 - **Database:** Neon. Two weeks of every board is about 470 MB once the raw ATS
   payloads are left out (`STORE_RAW=false`); see `db/migrations/0006_lean_storage.sql`
   for what was cut and measured.
-- **Sync:** `.github/workflows/sync.yml` runs every day at 00:17 UTC (about an hour),
-  applies migrations, syncs every board and prunes. Run it by hand from the Actions
-  tab too. Secret: `DATABASE_URL`. GitHub pauses scheduled workflows after 60 days
-  without a commit, so it needs re-enabling after a quiet spell.
+- **Sync:** `.github/workflows/sync.yml` runs every hour (at :17, sometimes a little
+  late: GitHub schedules are best-effort). `jobsite sync --due` checks boards with open
+  jobs every run and quiet boards every ~6 hours, about 5,200 of 7,733 per run. It
+  downloads everything with no database connection open (~15-20 min, set by the
+  per-ATS rate limits), then writes in one burst of under a minute, so Neon is awake
+  for minutes per run and the free compute allowance holds. Secret: `DATABASE_URL`.
+  GitHub pauses scheduled workflows after 60 days without a commit, so it needs
+  re-enabling after a quiet spell.
 - **Site:** Vercel, root directory `web`, with `DATABASE_URL` and
   `JOBSITE_READ_ONLY=1`. Read-only mode returns 404 for the admin page and its API,
   which run the CLI on the server and have no auth.
@@ -209,7 +216,7 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 122 tests (connector fixtures under workers/tests/fixtures; the age
+make test    # 127 tests (connector fixtures under workers/tests/fixtures; the age
              # test uses the dev database and is skipped when it's not running)
 ```
 
@@ -223,5 +230,5 @@ These are public, documented, unauthenticated job-board APIs, serving data
 companies are paying to broadcast, and every listing links back to the employer's
 own apply page. The client sends a contactable User-Agent, rate-limits per ATS
 (5 req/s), honors `Retry-After`, backs off on 429, and syncs every 6 hours locally
-and once a day for the public copy, rather than constantly. Undocumented endpoints (Workday et al.) are deliberately
+and hourly for the public copy (quiet boards every ~6 hours), rather than constantly. Undocumented endpoints (Workday et al.) are deliberately
 deprioritized and would get a lower limit.

@@ -144,13 +144,15 @@ def sync_cmd(
     company: str = typer.Option(None, "--company", "-c", help="Name or token"),
     stale_hours: int = typer.Option(None, help="Only companies not synced in N hours"),
     limit: int = typer.Option(None, help="Sync at most N companies (never-synced first)"),
+    due: bool = typer.Option(False, "--due", help="Only boards due a check: those with open jobs "
+                             "after ~1h, quiet ones after ~6h (for an hourly schedule)"),
     workers: int = typer.Option(4),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
     """Fetch boards and upsert jobs."""
     _setup_logging(verbose)
     results, pruned = sync.sync_all(only=company, stale_hours=stale_hours, workers=workers,
-                                    limit=limit)
+                                    limit=limit, due=due)
 
     ok = sum(r["status"] == "ok" for r in results)
     total = sum(r.get("fetched", 0) for r in results)

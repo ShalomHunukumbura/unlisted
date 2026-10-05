@@ -51,8 +51,8 @@ export default async function Home(props: PageProps<'/'>) {
             Unlisted
           </h1>
           <p className="mt-3 max-w-md text-pretty text-[15px] leading-relaxed text-ink">
-            Jobs that never make it to job boards: every role posted on {n(fc.totals.companies)}{" "}
-            company career pages in the past {MAX_AGE_DAYS} days.
+            Every role posted on {n(fc.totals.companies)} company career pages in the past{" "}
+            {MAX_AGE_DAYS} days, straight from the source, including the ones that never reach job boards.
           </p>
         </div>
         <dl className="flex gap-6 text-xs text-muted">

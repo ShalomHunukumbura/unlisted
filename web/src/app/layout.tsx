@@ -31,12 +31,12 @@ export const metadata: Metadata = {
       : "http://localhost:3000",
   ),
   title: {
-    default: "Unlisted · jobs that never make it to job boards",
+    default: "Unlisted · jobs straight from company career pages",
     template: "%s · Unlisted",
   },
   description,
   openGraph: {
-    title: "Unlisted · jobs that never make it to job boards",
+    title: "Unlisted · jobs straight from company career pages",
     description,
     siteName: "Unlisted",
     type: "website",
@@ -60,7 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="mt-auto border-t border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">
             <p className="max-w-xl text-pretty">
-              Pulled daily from public Greenhouse, Ashby and Lever job boards. Every listing
+              Pulled hourly from public Greenhouse, Ashby and Lever job boards. Every listing
               links to the employer&apos;s own posting; nothing is applied through this site.
             </p>
           </div>

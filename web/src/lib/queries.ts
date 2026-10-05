@@ -23,6 +23,9 @@ export type Job = {
   posted_at: string | null;
   closed_at: string | null;
   description_html?: string | null;
+  first_seen_at?: string | null;     // when Unlisted first saw it
+  first_synced_at?: string | null;   // when Unlisted started watching its board
+  board_checked_before?: string | null; // last check of the board before the job appeared
 };
 
 export type Filters = {
@@ -195,14 +198,41 @@ export const getJob = cache(async function getJob(id: string): Promise<Job | nul
             j.department, j.location_raw, j.locations, j.country, j.region,
             j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
             j.exp_min_years, j.exp_max_years, j.exp_source,
-            j.description_html
+            j.description_html, j.first_seen_at, c.first_synced_at, j.board_checked_before
        FROM jobs j JOIN companies c ON c.id = j.company_id
       WHERE j.id = $1`,
     [id],
   );
   const job = rows[0];
-  return job ? { ...job, posted_at: iso(job.posted_at), closed_at: iso(job.closed_at) } : null;
+  return job
+    ? {
+        ...job,
+        posted_at: iso(job.posted_at),
+        closed_at: iso(job.closed_at),
+        first_seen_at: iso(job.first_seen_at),
+        first_synced_at: iso(job.first_synced_at),
+        board_checked_before: iso(job.board_checked_before),
+      }
+    : null;
 });
+
+/** What the live "still open?" check needs to find the posting on its ATS. */
+export async function getJobRef(id: string) {
+  if (!/^\d{1,18}$/.test(id)) return null;
+  const rows = await query<{
+    ats: string;
+    board_token: string;
+    external_id: string;
+    ats_config: Record<string, unknown> | null;
+    closed_at: string | null;
+  }>(
+    `SELECT j.ats::text, c.board_token, j.external_id, c.ats_config, j.closed_at
+       FROM jobs j JOIN companies c ON c.id = j.company_id
+      WHERE j.id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
 
 export const facets = unstable_cache(
   async () => {

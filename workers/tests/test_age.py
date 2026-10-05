@@ -5,7 +5,9 @@ import pytest
 
 from jobsite import connectors, sync
 from jobsite.config import settings
-from jobsite.models import Company, NormalizedJob
+from jobsite.models import NormalizedJob
+
+from .conftest import FakeBoard
 
 NOW = datetime(2026, 10, 5, 12, tzinfo=timezone.utc)
 
@@ -27,37 +29,6 @@ def test_is_too_old(days_old, too_old):
 
 
 # --- against the dev database (skipped when it isn't running) -----------------
-
-
-@pytest.fixture
-def test_company():
-    from jobsite.db import cursor
-
-    try:
-        with cursor(commit=True) as cur:
-            cur.execute(
-                "INSERT INTO companies (name, ats, board_token, source) "
-                "VALUES ('pytest age co', 'lever', 'pytest-age-test', 'test') RETURNING id"
-            )
-            company_id = cur.fetchone()["id"]
-    except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"database not available: {exc}")
-    yield Company(id=company_id, name="pytest age co", ats="lever", board_token="pytest-age-test", ats_config={})
-    with cursor(commit=True) as cur:
-        cur.execute("DELETE FROM companies WHERE id=%s", (company_id,))  # cascades to its jobs
-
-
-class FakeBoard:
-    descriptions_inline = True
-
-    def __init__(self, jobs):
-        self.jobs = jobs
-
-    def fetch_listings(self, company, with_content=False):
-        return self.jobs
-
-    def normalize_job(self, company, raw):
-        return raw
 
 
 def stored(company_id):

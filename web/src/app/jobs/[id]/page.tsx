@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import LiveCheck from "@/components/LiveCheck";
 import { Tag, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
 import { getJob } from "@/lib/queries";
@@ -19,6 +20,48 @@ const ATS_LABEL: Record<string, string> = {
 export async function generateMetadata(props: PageProps<'/jobs/[id]'>): Promise<Metadata> {
   const job = await getJob((await props.params).id);
   return job ? { title: `${job.title} at ${job.company_name}` } : {};
+}
+
+const DAY = 86_400_000;
+
+function shortDate(iso: string, withTime = false): string {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(withTime ? { hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" } : { year: "numeric" }),
+  });
+}
+
+/**
+ * The employer's posted date is what the ATS says; "first seen" is when Unlisted
+ * found it. Claims about the gap need evidence, because a pause in syncing would
+ * also make a job look late:
+ *
+ * - found on the board's first sync: it was simply already there;
+ * - the board was checked after the posted date and the job wasn't on it: it
+ *   appeared later than its date says (a repost or backdated listing);
+ * - otherwise: just say when it was first seen.
+ */
+function firstSeenNote(job: {
+  posted_at: string | null;
+  first_seen_at?: string | null;
+  first_synced_at?: string | null;
+  board_checked_before?: string | null;
+}) {
+  const { posted_at, first_seen_at, first_synced_at, board_checked_before } = job;
+  if (!first_seen_at) return null;
+  const seen = new Date(first_seen_at).getTime();
+  if (first_synced_at && seen < new Date(first_synced_at).getTime() + 2 * 3_600_000) {
+    return `Already listed when Unlisted started watching this board (${shortDate(first_synced_at)})`;
+  }
+  if (posted_at && board_checked_before) {
+    const posted = new Date(posted_at).getTime();
+    const checked = new Date(board_checked_before).getTime();
+    if (checked - posted >= DAY) {
+      return `First seen by Unlisted ${shortDate(first_seen_at, true)}. It wasn't on the board at the check on ${shortDate(board_checked_before, true)}, after its posted date, so it may be a repost.`;
+    }
+  }
+  return `First seen by Unlisted ${shortDate(first_seen_at, true)}`;
 }
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -89,12 +132,13 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           </Fact>
           <Fact label="Posted">
             {job.posted_at ? (
-              <time dateTime={job.posted_at} className="font-mono tabular-nums">
-                {new Date(job.posted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              <time dateTime={job.posted_at} className="font-mono tabular-nums" title="The date on the employer's posting">
+                {shortDate(job.posted_at)}
               </time>
             ) : (
               <span className="text-muted">Unknown</span>
             )}
+            {firstSeenNote(job) && <span className="mt-0.5 block text-xs text-muted">{firstSeenNote(job)}</span>}
           </Fact>
         </dl>
 
@@ -112,6 +156,11 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           </a>
           <span className="text-xs text-muted">Opens the employer&apos;s own posting</span>
         </div>
+        {!job.closed_at && (
+          <div className="mt-3">
+            <LiveCheck jobId={job.id} ats={ats} />
+          </div>
+        )}
       </header>
 
       {job.description_html ? (

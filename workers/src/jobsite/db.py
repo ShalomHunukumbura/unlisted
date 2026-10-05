@@ -23,3 +23,12 @@ def cursor(commit: bool = False):
             yield cur
         if commit:
             conn.commit()
+
+
+def close_pool() -> None:
+    """Close every connection. sync calls this before its long download phase, so
+    a serverless database (Neon) can idle and suspend instead of being held awake."""
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None

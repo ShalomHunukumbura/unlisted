@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 // The preview card when the site is shared (LinkedIn, WhatsApp, Slack…).
 // Static: no live numbers, so it never shows a stale count.
-export const alt = "Unlisted: jobs that never make it to job boards";
+export const alt = "Unlisted: jobs straight from company career pages";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -25,7 +25,7 @@ export default function Image() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 132, letterSpacing: "-0.04em", lineHeight: 1 }}>Unlisted</div>
           <div style={{ fontSize: 44, marginTop: 24, color: "#2f3437", maxWidth: 900 }}>
-            Jobs that never make it to job boards.
+            Jobs straight from company career pages.
           </div>
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 26 }}>

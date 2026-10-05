@@ -1,4 +1,12 @@
-"""Sync orchestration: fetch, upsert, detect closures, prune, record the run.
+"""Sync orchestration, in two phases so the database is busy for minutes, not the hour:
+
+1. Fetch: every board is downloaded and normalized with no database connection
+   open. This is most of a run (the ATS rate limits set its length).
+2. Write: one short burst per run upserts changed jobs, marks unchanged ones as
+   seen in bulk, closes jobs that disappeared, records the run, and prunes.
+
+That matters on a serverless Postgres (Neon) that bills compute time: a run that
+wrote as it went kept the database awake for the whole ~26 minutes.
 
 A job that stops appearing in a company's board is stamped closed_at; if it
 comes back, the upsert reopens it. Jobs older than settings.max_job_age_days
@@ -8,6 +16,9 @@ sync skips them and prune() deletes any that have aged out since.
 from __future__ import annotations
 
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -15,7 +26,7 @@ from psycopg.types.json import Jsonb
 
 from . import connectors
 from .config import settings
-from .db import cursor
+from .db import close_pool, cursor
 from .models import Company, NormalizedJob
 
 log = logging.getLogger(__name__)
@@ -24,6 +35,12 @@ log = logging.getLogger(__name__)
 # treat it as a suspicious response and refuse to close them. Without this, one
 # bad upstream response silently wipes a company's entire board.
 SUSPICIOUS_EMPTY_THRESHOLD = 5
+
+# Tiered schedule for `sync --due`: boards with open jobs are checked every run
+# (hourly), boards with none every few hours. About 40% of boards have nothing
+# from the past two weeks, so this cuts requests without missing much.
+ACTIVE_EVERY = timedelta(minutes=50)   # under an hour, so hourly runs don't skip
+QUIET_EVERY = timedelta(hours=6) - timedelta(minutes=10)
 
 
 def age_cutoff(now: datetime | None = None) -> datetime:
@@ -37,19 +54,28 @@ def is_too_old(job: NormalizedJob, cutoff: datetime) -> bool:
 
 
 def prune(cutoff: datetime | None = None, company_id: int | None = None) -> int:
-    """Delete jobs older than the cutoff (for one company, or all). Returns how many."""
+    """Delete jobs older than the cutoff (for one company, or all). Returns how many.
+
+    Also drops sync logs older than settings.sync_runs_keep_days.
+    """
     with cursor(commit=True) as cur:
         cur.execute(
             "DELETE FROM jobs WHERE COALESCE(posted_at, first_seen_at) < %s "
             "AND (%s::bigint IS NULL OR company_id = %s)",
             (cutoff or age_cutoff(), company_id, company_id),
         )
-        return cur.rowcount
+        pruned = cur.rowcount
+        cur.execute(
+            "DELETE FROM sync_runs WHERE started_at < now() - make_interval(days => %s) "
+            "AND (%s::bigint IS NULL OR company_id = %s)",
+            (settings.sync_runs_keep_days, company_id, company_id),
+        )
+        return pruned
 
 
 def load_companies(only: str | None = None, enabled_only: bool = True,
                    stale_hours: int | None = None,
-                   limit: int | None = None) -> list[Company]:
+                   limit: int | None = None, due: bool = False) -> list[Company]:
     sql = ["SELECT id, name, ats::text AS ats, board_token, ats_config FROM companies WHERE TRUE"]
     params: list[Any] = []
     if enabled_only:
@@ -60,6 +86,14 @@ def load_companies(only: str | None = None, enabled_only: bool = True,
     if stale_hours is not None:
         sql.append("AND (last_synced_at IS NULL OR last_synced_at < now() - make_interval(hours => %s))")
         params.append(stale_hours)
+    if due:
+        sql.append(
+            "AND (last_synced_at IS NULL"
+            " OR last_synced_at < now() - %s"
+            " OR (last_synced_at < now() - %s AND EXISTS ("
+            "     SELECT 1 FROM jobs j WHERE j.company_id = companies.id AND j.closed_at IS NULL)))"
+        )
+        params += [QUIET_EVERY, ACTIVE_EVERY]
     # NULLS FIRST: never-synced boards are filled in before stale ones refresh.
     sql.append("ORDER BY last_synced_at NULLS FIRST, id")
     if limit is not None:
@@ -75,50 +109,65 @@ def load_companies(only: str | None = None, enabled_only: bool = True,
         ]
 
 
-def _start_run(company: Company, trigger: str) -> int:
-    with cursor(commit=True) as cur:
-        cur.execute(
-            "INSERT INTO sync_runs (company_id, ats, trigger, status) "
-            "VALUES (%s, %s, %s, 'running') RETURNING id",
-            (company.id, company.ats, trigger),
-        )
-        return cur.fetchone()["id"]
+# --- phase 1: fetch (no database) ------------------------------------------------
 
 
-def _finish_run(run_id: int, status: str, **counts) -> None:
-    with cursor(commit=True) as cur:
-        cur.execute(
-            """UPDATE sync_runs SET status=%s, finished_at=now(),
-                   jobs_fetched=%s, jobs_created=%s, jobs_updated=%s, jobs_closed=%s,
-                   error=%s, notes=%s
-                 WHERE id=%s""",
-            (status, counts.get("fetched", 0), counts.get("created", 0),
-             counts.get("updated", 0), counts.get("closed", 0),
-             counts.get("error"), Jsonb(counts.get("notes") or {}), run_id),
-        )
+@dataclass
+class Fetched:
+    """One board's download, normalized and filtered, ready to write."""
+    company: Company
+    started_at: datetime
+    jobs: list[NormalizedJob] = field(default_factory=list)
+    fetched: int = 0
+    too_old: int = 0
+    with_content: bool = False
+    error: str | None = None
 
 
-def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
-    """Insert or update one job. Returns 'created' | 'updated' | 'unchanged'.
+def fetch_company(company: Company, cutoff: datetime,
+                  with_content: bool | None = None) -> Fetched:
+    """Download and normalize one board. Never touches the database."""
+    conn = connectors.get(company.ats)
+    # Fetch descriptions inline when the ATS gives them away free; for
+    # Greenhouse this is the one bulk content=true call.
+    if with_content is None:
+        with_content = not conn.descriptions_inline
+    out = Fetched(company, datetime.now(timezone.utc), with_content=with_content)
+    try:
+        raw_jobs = list(conn.fetch_listings(company, with_content=with_content))
+    except Exception as exc:  # noqa: BLE001 - recorded, then surfaced on admin
+        log.exception("fetch failed for %s", company.name)
+        out.error = str(exc)[:500]
+        return out
+    out.fetched = len(raw_jobs)
+    for raw in raw_jobs:
+        try:
+            job = conn.normalize_job(company, raw)
+        except Exception:  # noqa: BLE001 - one bad row must not fail the run
+            log.exception("normalize failed for %s", company.name)
+            continue
+        if not job.external_id or not job.title:
+            continue
+        if is_too_old(job, cutoff):
+            out.too_old += 1
+            continue
+        if not settings.store_raw:
+            job.raw = {}  # never stored, so don't hold thousands of payloads in memory
+        out.jobs.append(job)
+    return out
 
-    content_hash lets an unchanged job skip the write entirely, so repeat syncs
-    don't churn the GIN index.
+
+# --- phase 2: write ----------------------------------------------------------------
+
+
+def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int,
+               checked_before: datetime | None = None) -> None:
+    """Insert a new job or update a changed one.
+
+    checked_before: when this board was last checked before the job appeared.
+    Only set on insert, never on update.
     """
-    cur.execute(
-        "SELECT id, content_hash, closed_at FROM jobs "
-        "WHERE ats=%s AND company_id=%s AND external_id=%s",
-        (company.ats, company.id, job.external_id),
-    )
-    existing = cur.fetchone()
     digest = job.content_hash()
-
-    if existing and existing["content_hash"] == digest and existing["closed_at"] is None:
-        cur.execute(
-            "UPDATE jobs SET last_seen_at=now(), last_seen_run=%s WHERE id=%s",
-            (run_id, existing["id"]),
-        )
-        return "unchanged"
-
     values = (
         company.id, company.ats, job.external_id, job.title, job.apply_url,
         job.department, job.team, job.employment_type,
@@ -129,6 +178,7 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
         job.exp_min_years, job.exp_max_years, job.exp_source,
         job.posted_at, job.ats_updated_at,
         run_id, Jsonb(job.raw) if settings.store_raw else None, digest,
+        checked_before,
     )
     cur.execute(
         """
@@ -141,8 +191,8 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             description_html,
             exp_min_years, exp_max_years, exp_source,
             posted_at, ats_updated_at,
-            last_seen_run, raw, content_hash
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            last_seen_run, raw, content_hash, board_checked_before
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (ats, company_id, external_id) DO UPDATE SET
             title=EXCLUDED.title,
             apply_url=EXCLUDED.apply_url,
@@ -177,102 +227,133 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
         """,
         values,
     )
-    return "created" if not existing else "updated"
+
+
+def write_company(cur, f: Fetched, trigger: str) -> dict:
+    """Record one fetched board. Unchanged jobs cost one bulk UPDATE, not one each."""
+    company = f.company
+    cur.execute(
+        "INSERT INTO sync_runs (company_id, ats, trigger, status, started_at) "
+        "VALUES (%s, %s, %s, 'running', %s) RETURNING id",
+        (company.id, company.ats, trigger, f.started_at),
+    )
+    run_id = cur.fetchone()["id"]
+
+    if f.error:
+        cur.execute(
+            "UPDATE sync_runs SET status='error', finished_at=now(), error=%s WHERE id=%s",
+            (f.error, run_id),
+        )
+        cur.execute(
+            "UPDATE companies SET last_synced_at=now(), last_error=%s, "
+            "consecutive_failures=consecutive_failures+1 WHERE id=%s",
+            (f.error, company.id),
+        )
+        return {"company": company.name, "status": "error", "error": f.error}
+
+    cur.execute("SELECT last_success_at FROM companies WHERE id=%s", (company.id,))
+    checked_before = cur.fetchone()["last_success_at"]  # None on a board's first sync
+    cur.execute(
+        "SELECT id, external_id, content_hash, closed_at FROM jobs WHERE company_id=%s",
+        (company.id,),
+    )
+    existing = {r["external_id"]: r for r in cur.fetchall()}
+    open_before = sum(r["closed_at"] is None for r in existing.values())
+
+    created = updated = 0
+    unchanged_ids: list[int] = []
+    for job in f.jobs:
+        known = existing.get(job.external_id)
+        if known and known["content_hash"] == job.content_hash() and known["closed_at"] is None:
+            unchanged_ids.append(known["id"])
+            continue
+        upsert_job(cur, company, job, run_id, checked_before)
+        created += known is None
+        updated += known is not None
+    if unchanged_ids:
+        cur.execute(
+            "UPDATE jobs SET last_seen_at=now(), last_seen_run=%s WHERE id = ANY(%s)",
+            (run_id, unchanged_ids),
+        )
+
+    # The guard: an empty board when we already hold jobs is far more likely
+    # an upstream hiccup than a company closing every role at once. (A board
+    # whose jobs are all too old isn't empty: they were fetched, just skipped.)
+    suspicious = f.fetched == 0 and open_before > SUSPICIOUS_EMPTY_THRESHOLD
+    closed = 0
+    if not suspicious:
+        cur.execute(
+            "UPDATE jobs SET closed_at=now(), updated_at=now() "
+            "WHERE company_id=%s AND closed_at IS NULL "
+            "AND last_seen_run IS DISTINCT FROM %s",
+            (company.id, run_id),
+        )
+        closed = cur.rowcount
+
+    cur.execute(
+        "UPDATE companies SET last_synced_at=now(), last_success_at=now(), "
+        "consecutive_failures=0, last_error=NULL, verified_at=now(), "
+        "first_synced_at=COALESCE(first_synced_at, %s) WHERE id=%s",
+        (f.started_at, company.id),
+    )
+    status = "suspicious" if suspicious else "ok"
+    unchanged = len(unchanged_ids)
+    cur.execute(
+        """UPDATE sync_runs SET status=%s, finished_at=now(), jobs_fetched=%s,
+               jobs_created=%s, jobs_updated=%s, jobs_closed=%s, notes=%s
+             WHERE id=%s""",
+        (status, f.fetched, created, updated, closed,
+         Jsonb({"unchanged": unchanged, "open_before": open_before,
+                "with_content": f.with_content, "too_old": f.too_old}), run_id),
+    )
+    return {"company": company.name, "status": status, "fetched": f.fetched,
+            "created": created, "updated": updated, "unchanged": unchanged,
+            "closed": closed, "too_old": f.too_old}
+
+
+def write_all(fetched: list[Fetched], trigger: str, workers: int = 4) -> list[dict]:
+    """The write burst: a few connections, one transaction per board."""
+    def write(f: Fetched) -> dict:
+        with cursor(commit=True) as cur:
+            return write_company(cur, f, trigger)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(write, fetched))
+
+
+# --- entry points ------------------------------------------------------------------
 
 
 def sync_company(company: Company, trigger: str = "manual",
                  with_content: bool | None = None) -> dict:
-    """Sync one company's board. Returns a result summary."""
-    conn = connectors.get(company.ats)
-    run_id = _start_run(company, trigger)
-
-    # Fetch descriptions inline when the ATS gives them away free; for
-    # Greenhouse this is the one bulk content=true call.
-    if with_content is None:
-        with_content = not conn.descriptions_inline
-
-    created = updated = unchanged = too_old = 0
-    cutoff = age_cutoff()
-    try:
-        raw_jobs = list(conn.fetch_listings(company, with_content=with_content))
-    except Exception as exc:  # noqa: BLE001 - recorded, then surfaced on admin
-        log.exception("fetch failed for %s", company.name)
-        _finish_run(run_id, "error", error=str(exc)[:500])
-        with cursor(commit=True) as cur:
-            cur.execute(
-                "UPDATE companies SET last_synced_at=now(), last_error=%s, "
-                "consecutive_failures=consecutive_failures+1 WHERE id=%s",
-                (str(exc)[:500], company.id),
-            )
-        return {"company": company.name, "status": "error", "error": str(exc)}
-
+    """Sync one board (used by add-url and the admin page)."""
+    f = fetch_company(company, age_cutoff(), with_content)
     with cursor(commit=True) as cur:
-        cur.execute(
-            "SELECT count(*) AS n FROM jobs WHERE company_id=%s AND closed_at IS NULL",
-            (company.id,),
-        )
-        open_before = cur.fetchone()["n"]
-
-        for raw in raw_jobs:
-            try:
-                job = conn.normalize_job(company, raw)
-            except Exception:  # noqa: BLE001 - one bad row must not fail the run
-                log.exception("normalize failed for %s", company.name)
-                continue
-            if not job.external_id or not job.title:
-                continue
-            if is_too_old(job, cutoff):
-                too_old += 1
-                continue
-            outcome = upsert_job(cur, company, job, run_id)
-            created += outcome == "created"
-            updated += outcome == "updated"
-            unchanged += outcome == "unchanged"
-
-        # The guard: an empty board when we already hold jobs is far more likely
-        # an upstream hiccup than a company closing every role at once. (A board
-        # whose jobs are all too old isn't empty: they were fetched, just skipped.)
-        suspicious = not raw_jobs and open_before > SUSPICIOUS_EMPTY_THRESHOLD
-        closed = 0
-        if not suspicious:
-            cur.execute(
-                "UPDATE jobs SET closed_at=now(), updated_at=now() "
-                "WHERE company_id=%s AND closed_at IS NULL "
-                "AND last_seen_run IS DISTINCT FROM %s",
-                (company.id, run_id),
-            )
-            closed = cur.rowcount
-
-        cur.execute(
-            "UPDATE companies SET last_synced_at=now(), last_success_at=now(), "
-            "consecutive_failures=0, last_error=NULL, verified_at=now() WHERE id=%s",
-            (company.id,),
-        )
-
-    status = "suspicious" if suspicious else "ok"
-    _finish_run(run_id, status, fetched=len(raw_jobs), created=created,
-                updated=updated, closed=closed,
-                notes={"unchanged": unchanged, "open_before": open_before,
-                       "with_content": with_content, "too_old": too_old})
-
-    return {"company": company.name, "status": status, "fetched": len(raw_jobs),
-            "created": created, "updated": updated, "unchanged": unchanged,
-            "closed": closed, "too_old": too_old}
+        return write_company(cur, f, trigger)
 
 
 def sync_all(only: str | None = None, stale_hours: int | None = None,
              trigger: str = "manual", workers: int = 4,
-             limit: int | None = None) -> tuple[list[dict], int]:
-    """Sync the boards, then prune. Returns (per-company results, jobs pruned)."""
-    from concurrent.futures import ThreadPoolExecutor
+             limit: int | None = None, due: bool = False) -> tuple[list[dict], int]:
+    """Fetch the boards, write them in one burst, then prune.
 
-    companies = load_companies(only=only, stale_hours=stale_hours, limit=limit)
-    results: list[dict] = []
+    Returns (per-company results, jobs pruned).
+    """
+    companies = load_companies(only=only, stale_hours=stale_hours, limit=limit, due=due)
+    # Let the database idle (and a serverless one suspend) while we download.
+    close_pool()
+
+    cutoff = age_cutoff()
+    t0 = time.monotonic()
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for res in pool.map(lambda c: sync_company(c, trigger=trigger), companies):
-            results.append(res)
-            log.info("synced %s", res)
+        fetched = list(pool.map(lambda c: fetch_company(c, cutoff), companies))
+    t1 = time.monotonic()
+
+    results = write_all(fetched, trigger)
     # Also catches jobs on boards that weren't synced this time (or keep failing).
     pruned = prune()
-    log.info("pruned %s jobs older than %s days", pruned, settings.max_job_age_days)
+    t2 = time.monotonic()
+    close_pool()
+    log.info("fetched %s boards in %.0fs, wrote in %.0fs; pruned %s jobs older than %s days",
+             len(companies), t1 - t0, t2 - t1, pruned, settings.max_job_age_days)
     return results, pruned
