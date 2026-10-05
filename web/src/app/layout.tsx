@@ -63,12 +63,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Pulled daily from public Greenhouse, Ashby and Lever job boards. Every listing
               links to the employer&apos;s own posting; nothing is applied through this site.
             </p>
-            <a
-              href="https://github.com/ShalomHunukumbura/unlisted"
-              className="shrink-0 underline decoration-line underline-offset-4 transition-colors hover:text-ink-strong hover:decoration-current"
-            >
-              Source on GitHub
-            </a>
           </div>
         </footer>
         <Analytics />
