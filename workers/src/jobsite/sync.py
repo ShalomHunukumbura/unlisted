@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import psycopg
 from psycopg.types.json import Jsonb
 
 from . import connectors
@@ -212,10 +213,15 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int,
             -- never overwrite a stored description with NULL: a listings-only
             -- pass must not wipe what a content pass already fetched.
             description_html=COALESCE(EXCLUDED.description_html, jobs.description_html),
-            -- like descriptions, don't let a listings-only pass wipe these
-            exp_min_years=COALESCE(EXCLUDED.exp_min_years, jobs.exp_min_years),
-            exp_max_years=COALESCE(EXCLUDED.exp_max_years, jobs.exp_max_years),
-            exp_source=COALESCE(EXCLUDED.exp_source, jobs.exp_source),
+            -- like descriptions, don't let a listings-only pass wipe these. The
+            -- range moves as one unit: merging each end separately once made
+            -- min 5 (new, "5+") with max 2 (old), which violates the range check.
+            exp_min_years=CASE WHEN EXCLUDED.exp_min_years IS NOT NULL
+                               THEN EXCLUDED.exp_min_years ELSE jobs.exp_min_years END,
+            exp_max_years=CASE WHEN EXCLUDED.exp_min_years IS NOT NULL
+                               THEN EXCLUDED.exp_max_years ELSE jobs.exp_max_years END,
+            exp_source=CASE WHEN EXCLUDED.exp_min_years IS NOT NULL
+                            THEN EXCLUDED.exp_source ELSE jobs.exp_source END,
             posted_at=COALESCE(EXCLUDED.posted_at, jobs.posted_at),
             ats_updated_at=EXCLUDED.ats_updated_at,
             last_seen_at=now(),
@@ -260,14 +266,22 @@ def write_company(cur, f: Fetched, trigger: str) -> dict:
     existing = {r["external_id"]: r for r in cur.fetchall()}
     open_before = sum(r["closed_at"] is None for r in existing.values())
 
-    created = updated = 0
+    created = updated = skipped = 0
     unchanged_ids: list[int] = []
     for job in f.jobs:
         known = existing.get(job.external_id)
         if known and known["content_hash"] == job.content_hash() and known["closed_at"] is None:
             unchanged_ids.append(known["id"])
             continue
-        upsert_job(cur, company, job, run_id, checked_before)
+        try:
+            with cur.connection.transaction():  # a savepoint: one bad job can't sink the board
+                upsert_job(cur, company, job, run_id, checked_before)
+        except psycopg.Error:
+            log.exception("could not save job %s for %s", job.external_id, company.name)
+            skipped += 1
+            if known:
+                unchanged_ids.append(known["id"])  # still listed: don't let it be closed
+            continue
         created += known is None
         updated += known is not None
     if unchanged_ids:
@@ -303,7 +317,7 @@ def write_company(cur, f: Fetched, trigger: str) -> dict:
                jobs_created=%s, jobs_updated=%s, jobs_closed=%s, notes=%s
              WHERE id=%s""",
         (status, f.fetched, created, updated, closed,
-         Jsonb({"unchanged": unchanged, "open_before": open_before,
+         Jsonb({"unchanged": unchanged, "open_before": open_before, "skipped_bad": skipped,
                 "with_content": f.with_content, "too_old": f.too_old}), run_id),
     )
     return {"company": company.name, "status": status, "fetched": f.fetched,
@@ -312,10 +326,21 @@ def write_company(cur, f: Fetched, trigger: str) -> dict:
 
 
 def write_all(fetched: list[Fetched], trigger: str, workers: int = 4) -> list[dict]:
-    """The write burst: a few connections, one transaction per board."""
+    """The write burst: a few connections, one transaction per board.
+
+    A board that fails to write is rolled back and recorded as an error; it
+    never stops the others (or the prune) from running.
+    """
     def write(f: Fetched) -> dict:
-        with cursor(commit=True) as cur:
-            return write_company(cur, f, trigger)
+        try:
+            with cursor(commit=True) as cur:
+                return write_company(cur, f, trigger)
+        except Exception as exc:  # noqa: BLE001 - one board must not fail the run
+            log.exception("write failed for %s", f.company.name)
+            failed = Fetched(f.company, f.started_at, fetched=f.fetched,
+                             error=f"write failed: {exc}"[:500])
+            with cursor(commit=True) as cur:
+                return write_company(cur, failed, trigger)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(write, fetched))

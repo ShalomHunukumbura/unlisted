@@ -165,3 +165,55 @@ def test_new_jobs_record_when_the_board_was_last_checked(test_company, monkeypat
     after = checked_before()
     assert after["b"] == previous                    # appeared after that check
     assert after["a"] is None                        # an update never sets it
+
+
+def test_experience_range_is_replaced_whole_not_mixed(test_company, monkeypatch):
+    first = job("a")
+    first.exp_min_years, first.exp_max_years, first.exp_source = 1, 2, "description"
+    board = [first]
+    monkeypatch.setattr(connectors, "get", lambda ats: FakeBoard(board))
+    sync.sync_company(test_company)
+
+    # the posting changes: now "5+" (no maximum), guessed from a new title
+    changed = job("a", "Senior Job a")
+    changed.exp_min_years, changed.exp_max_years, changed.exp_source = 5, None, "title"
+    board[:] = [changed]
+    result = sync.sync_company(test_company)  # used to fail: min 5 merged with old max 2
+    assert result["status"] == "ok"
+    with cursor() as cur:
+        cur.execute("SELECT exp_min_years, exp_max_years, exp_source FROM jobs WHERE company_id=%s",
+                    (test_company.id,))
+        assert cur.fetchone() == {"exp_min_years": 5, "exp_max_years": None, "exp_source": "title"}
+
+    # and a listing with no experience info keeps the range it had
+    board[:] = [job("a", "Senior Job a, renamed")]
+    sync.sync_company(test_company)
+    with cursor() as cur:
+        cur.execute("SELECT exp_min_years, exp_max_years FROM jobs WHERE company_id=%s", (test_company.id,))
+        assert cur.fetchone() == {"exp_min_years": 5, "exp_max_years": None}
+
+
+def test_one_bad_job_does_not_sink_its_board(test_company, monkeypatch):
+    bad = job("bad")
+    bad.exp_min_years, bad.exp_max_years = 5, 2  # breaks the range check
+    monkeypatch.setattr(connectors, "get", lambda ats: FakeBoard([job("ok"), bad]))
+    result = sync.sync_company(test_company)
+    assert result["status"] == "ok" and result["created"] == 1
+    assert set(rows(test_company.id)) == {"ok"}
+    assert last_run(test_company.id)["notes"]["skipped_bad"] == 1
+
+
+def test_a_board_that_fails_to_write_does_not_stop_the_run(test_company, monkeypatch):
+    good = sync.Fetched(test_company, datetime.now(timezone.utc), jobs=[job("ok")], fetched=1)
+    broken = sync.Fetched(test_company, datetime.now(timezone.utc), jobs=[job("x")], fetched=1)
+    real = sync.write_company
+
+    def flaky(cur, f, trigger):
+        if f is broken:
+            raise RuntimeError("database hiccup")
+        return real(cur, f, trigger)
+
+    monkeypatch.setattr(sync, "write_company", flaky)
+    results = sync.write_all([broken, good], trigger="test")
+    assert [r["status"] for r in results] == ["error", "ok"]
+    assert "database hiccup" in results[0]["error"]
