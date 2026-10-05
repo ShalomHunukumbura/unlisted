@@ -17,9 +17,9 @@ SYNC_INTERVAL_HOURS = 6
 
 
 def listings_sync() -> None:
-    results = sync.sync_all(stale_hours=SYNC_INTERVAL_HOURS, trigger="schedule")
+    results, pruned = sync.sync_all(stale_hours=SYNC_INTERVAL_HOURS, trigger="schedule")
     ok = sum(r["status"] == "ok" for r in results)
-    log.info("scheduled sync: %s/%s ok", ok, len(results))
+    log.info("scheduled sync: %s/%s ok, %s old jobs pruned", ok, len(results), pruned)
 
 
 def main() -> None:

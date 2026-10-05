@@ -1,17 +1,20 @@
-"""Sync orchestration: fetch, upsert, detect closures, record the run.
+"""Sync orchestration: fetch, upsert, detect closures, prune, record the run.
 
-Jobs are never deleted. A job that stops appearing in a company's board is
-stamped closed_at; if it comes back, the upsert reopens it.
+A job that stops appearing in a company's board is stamped closed_at; if it
+comes back, the upsert reopens it. Jobs older than settings.max_job_age_days
+(by posted_at, or first_seen_at when the ATS gives no date) are never stored:
+sync skips them and prune() deletes any that have aged out since.
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from psycopg.types.json import Jsonb
 
 from . import connectors
+from .config import settings
 from .db import cursor
 from .models import Company, NormalizedJob
 
@@ -21,6 +24,27 @@ log = logging.getLogger(__name__)
 # treat it as a suspicious response and refuse to close them. Without this, one
 # bad upstream response silently wipes a company's entire board.
 SUSPICIOUS_EMPTY_THRESHOLD = 5
+
+
+def age_cutoff(now: datetime | None = None) -> datetime:
+    """Anything posted before this is too old to keep."""
+    return (now or datetime.now(timezone.utc)) - timedelta(days=settings.max_job_age_days)
+
+
+def is_too_old(job: NormalizedJob, cutoff: datetime) -> bool:
+    # No posted date: keep it; prune ages it out by first_seen_at instead.
+    return job.posted_at is not None and job.posted_at < cutoff
+
+
+def prune(cutoff: datetime | None = None, company_id: int | None = None) -> int:
+    """Delete jobs older than the cutoff (for one company, or all). Returns how many."""
+    with cursor(commit=True) as cur:
+        cur.execute(
+            "DELETE FROM jobs WHERE COALESCE(posted_at, first_seen_at) < %s "
+            "AND (%s::bigint IS NULL OR company_id = %s)",
+            (cutoff or age_cutoff(), company_id, company_id),
+        )
+        return cur.rowcount
 
 
 def load_companies(only: str | None = None, enabled_only: bool = True,
@@ -101,10 +125,10 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
         job.location_raw, job.locations, job.country, job.region,
         job.remote, job.remote_scope, job.open_to,
         job.comp_min, job.comp_max, job.comp_currency,
-        job.description_html, job.description_text,
+        job.description_html,
         job.exp_min_years, job.exp_max_years, job.exp_source,
         job.posted_at, job.ats_updated_at,
-        run_id, Jsonb(job.raw), digest,
+        run_id, Jsonb(job.raw) if settings.store_raw else None, digest,
     )
     cur.execute(
         """
@@ -114,11 +138,11 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             location_raw, locations, country, region,
             remote, remote_scope, open_to,
             comp_min, comp_max, comp_currency,
-            description_html, description_text,
+            description_html,
             exp_min_years, exp_max_years, exp_source,
             posted_at, ats_updated_at,
             last_seen_run, raw, content_hash
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (ats, company_id, external_id) DO UPDATE SET
             title=EXCLUDED.title,
             apply_url=EXCLUDED.apply_url,
@@ -138,7 +162,6 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int) -> str:
             -- never overwrite a stored description with NULL: a listings-only
             -- pass must not wipe what a content pass already fetched.
             description_html=COALESCE(EXCLUDED.description_html, jobs.description_html),
-            description_text=COALESCE(EXCLUDED.description_text, jobs.description_text),
             -- like descriptions, don't let a listings-only pass wipe these
             exp_min_years=COALESCE(EXCLUDED.exp_min_years, jobs.exp_min_years),
             exp_max_years=COALESCE(EXCLUDED.exp_max_years, jobs.exp_max_years),
@@ -168,7 +191,8 @@ def sync_company(company: Company, trigger: str = "manual",
     if with_content is None:
         with_content = not conn.descriptions_inline
 
-    created = updated = unchanged = 0
+    created = updated = unchanged = too_old = 0
+    cutoff = age_cutoff()
     try:
         raw_jobs = list(conn.fetch_listings(company, with_content=with_content))
     except Exception as exc:  # noqa: BLE001 - recorded, then surfaced on admin
@@ -197,13 +221,17 @@ def sync_company(company: Company, trigger: str = "manual",
                 continue
             if not job.external_id or not job.title:
                 continue
+            if is_too_old(job, cutoff):
+                too_old += 1
+                continue
             outcome = upsert_job(cur, company, job, run_id)
             created += outcome == "created"
             updated += outcome == "updated"
             unchanged += outcome == "unchanged"
 
         # The guard: an empty board when we already hold jobs is far more likely
-        # an upstream hiccup than a company closing every role at once.
+        # an upstream hiccup than a company closing every role at once. (A board
+        # whose jobs are all too old isn't empty: they were fetched, just skipped.)
         suspicious = not raw_jobs and open_before > SUSPICIOUS_EMPTY_THRESHOLD
         closed = 0
         if not suspicious:
@@ -225,16 +253,17 @@ def sync_company(company: Company, trigger: str = "manual",
     _finish_run(run_id, status, fetched=len(raw_jobs), created=created,
                 updated=updated, closed=closed,
                 notes={"unchanged": unchanged, "open_before": open_before,
-                       "with_content": with_content})
+                       "with_content": with_content, "too_old": too_old})
 
     return {"company": company.name, "status": status, "fetched": len(raw_jobs),
             "created": created, "updated": updated, "unchanged": unchanged,
-            "closed": closed}
+            "closed": closed, "too_old": too_old}
 
 
 def sync_all(only: str | None = None, stale_hours: int | None = None,
              trigger: str = "manual", workers: int = 4,
-             limit: int | None = None) -> list[dict]:
+             limit: int | None = None) -> tuple[list[dict], int]:
+    """Sync the boards, then prune. Returns (per-company results, jobs pruned)."""
     from concurrent.futures import ThreadPoolExecutor
 
     companies = load_companies(only=only, stale_hours=stale_hours, limit=limit)
@@ -243,4 +272,7 @@ def sync_all(only: str | None = None, stale_hours: int | None = None,
         for res in pool.map(lambda c: sync_company(c, trigger=trigger), companies):
             results.append(res)
             log.info("synced %s", res)
-    return results
+    # Also catches jobs on boards that weren't synced this time (or keep failing).
+    pruned = prune()
+    log.info("pruned %s jobs older than %s days", pruned, settings.max_job_age_days)
+    return results, pruned

@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # Applies db/migrations/*.sql in order, once each, tracked in schema_migrations.
+#
+#   ./db/migrate.sh                          the local docker database
+#   MIGRATE_URL=postgresql://... ./db/migrate.sh   any other (e.g. Neon); uses
+#                                            psql if installed, else the docker one
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-PSQL=(docker compose exec -T postgres psql -U jobsite -d jobsite -v ON_ERROR_STOP=1)
+if [ -z "${MIGRATE_URL:-}" ]; then
+  PSQL=(docker compose exec -T postgres psql -U jobsite -d jobsite -v ON_ERROR_STOP=1)
+elif command -v psql >/dev/null; then
+  PSQL=(psql "$MIGRATE_URL" -v ON_ERROR_STOP=1)
+else
+  PSQL=(docker compose exec -T postgres psql "$MIGRATE_URL" -v ON_ERROR_STOP=1)
+fi
 
 "${PSQL[@]}" -q -c "CREATE TABLE IF NOT EXISTS schema_migrations (
   version text PRIMARY KEY,

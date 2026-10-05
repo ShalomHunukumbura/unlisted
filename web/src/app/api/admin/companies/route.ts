@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/db";
+import { READ_ONLY } from "@/lib/mode";
 
 const run = promisify(execFile);
 
@@ -14,6 +15,7 @@ const WORKERS = path.resolve(process.cwd(), "..", "workers");
 const JOBSITE = path.join(WORKERS, ".venv", "bin", "jobsite");
 
 export async function POST(req: Request) {
+  if (READ_ONLY) return NextResponse.json({ error: "not found" }, { status: 404 });
   const { action, url, id } = await req.json();
 
   try {

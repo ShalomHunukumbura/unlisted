@@ -87,10 +87,10 @@ export default function FilterBar({ companies, countries, departments }: Props) 
       </select>
 
       <select className={select} value={params.get("since") ?? ""} onChange={(e) => set("since", e.target.value)}>
-        <option value="">Any time</option>
+        <option value="">Past 2 weeks</option>
         <option value="1">Past 24h</option>
+        <option value="3">Past 3 days</option>
         <option value="7">Past week</option>
-        <option value="30">Past month</option>
       </select>
 
       {Array.from(params.keys()).some((k) => k !== "cursor") && (

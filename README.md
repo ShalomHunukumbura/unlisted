@@ -1,11 +1,27 @@
-# job-site
+# Unlisted
 
-Pulls jobs from company ATS boards (Greenhouse, Ashby, Lever) into one searchable
-place. Every listing deep-links to the real ATS apply page — this is a discovery
-and search layer, not an application proxy.
+**Jobs that never make it to job boards: fresh roles from 7,700+ company career
+pages, in one search.** Many companies post
+roles only on their own careers page, hosted by an applicant tracking system
+(Greenhouse, Ashby, Lever), and never on LinkedIn or job boards. You only find them
+if you already know the company. This pulls every one of those boards into a single
+searchable list, keeps only the **past two weeks**, and links each job straight to
+the employer's own apply page.
 
-Built because ATS-hosted jobs are effectively invisible unless you already know
-the company exists and visit its board directly.
+![Remote jobs open to Sri Lanka, posted in the past two weeks](docs/screenshot.png)
+
+- **Where can I actually work from?** "Remote" often means "remote in the US".
+  Each remote job is classified as open to anywhere, to a region (EU, APAC…) or to
+  one country, and there's a filter for roles open from Sri Lanka.
+- **Experience level** from what the description asks for ("3+ years"), falling
+  back to the title.
+- **Only what's still worth applying to.** Of 227,719 open jobs across all boards on
+  the first full sync, 82% were posted over two weeks ago. Those are never stored.
+
+It's a discovery layer, not an application proxy: no accounts, no tracking, and
+every listing links to the real posting.
+
+(The code still calls itself `jobsite`: that's the CLI command and Python package.)
 
 ## Quick start
 
@@ -116,8 +132,16 @@ role, which is not a 5+ job.
 
 ## Design decisions worth knowing
 
-**Jobs are never deleted.** A job missing from a sync is stamped `closed_at`; if
-it reappears, the upsert reopens it. History stays intact.
+**Only the past two weeks.** By two weeks most roles have hundreds of applicants,
+so older ones are noise. Sync skips jobs posted more than `MAX_JOB_AGE_DAYS`
+(default 14) ago, and every sync ends with a prune that deletes jobs that have
+aged out since. Age is `posted_at`, or `first_seen_at` when the ATS gives no
+date. This also keeps the database small (1.16 GB for every open job vs. a
+fraction of that for two weeks), and the web app applies the same window so
+pages are right between syncs.
+
+**Closed, not deleted, within the window.** A job missing from a sync is stamped
+`closed_at`; if it reappears, the upsert reopens it.
 
 **The empty-board guard.** If a board returns zero jobs while we hold more than
 five open ones, the run is marked `suspicious` and closes nothing. Without this,
@@ -140,13 +164,40 @@ the authority — otherwise hybrid jobs pollute the remote filter.
 **Keyset pagination, not OFFSET.** Verified to run as an Index Only Scan on the
 partial index.
 
+## Public deployment
+
+The public copy runs on free tiers, with the same schema and sync code as local:
+
+```
+GitHub Actions (daily) ──sync──> Neon Postgres (free, 1 GB) <──reads── Vercel (Next.js, read-only)
+```
+
+- **Database:** Neon. Two weeks of every board is about 470 MB once the raw ATS
+  payloads are left out (`STORE_RAW=false`); see `db/migrations/0006_lean_storage.sql`
+  for what was cut and measured.
+- **Sync:** `.github/workflows/sync.yml` runs every day at 00:17 UTC (about an hour),
+  applies migrations, syncs every board and prunes. Run it by hand from the Actions
+  tab too. Secret: `DATABASE_URL`. GitHub pauses scheduled workflows after 60 days
+  without a commit, so it needs re-enabling after a quiet spell.
+- **Site:** Vercel, root directory `web`, with `DATABASE_URL` and
+  `JOBSITE_READ_ONLY=1`. Read-only mode returns 404 for the admin page and its API,
+  which run the CLI on the server and have no auth.
+- **Companies** are managed locally. `make push-companies DEPLOY_URL=...` copies new
+  ones to the deployed database (existing ones are left alone).
+
+```bash
+make deploy-migrate DEPLOY_URL="postgresql://..."    # once, then the workflow keeps it current
+make push-companies DEPLOY_URL="postgresql://..."
+```
+
 ## Commands
 
 ```bash
 jobsite discover --seeds ../db/seed/companies.txt
 jobsite add-url https://jobs.ashbyhq.com/linear     # or just: jobsite add-url Linear
 jobsite import-boards db/seed/ashby_boards.txt --ats ashby
-jobsite sync [--company X] [--stale-hours 6]
+jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 14 days
+jobsite prune                                      # just the prune
 jobsite stats
 python -m jobsite.scheduler                          # sync every 6h
 ```
@@ -154,7 +205,8 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 75 tests, offline (connector fixtures under workers/tests/fixtures)
+make test    # 122 tests (connector fixtures under workers/tests/fixtures; the age
+             # test uses the dev database and is skipped when it's not running)
 ```
 
 Covers location normalization, HTML sanitization, connector normalization,
@@ -166,6 +218,6 @@ enough to break things.
 These are public, documented, unauthenticated job-board APIs, serving data
 companies are paying to broadcast, and every listing links back to the employer's
 own apply page. The client sends a contactable User-Agent, rate-limits per ATS
-(5 req/s), honors `Retry-After`, backs off on 429, and syncs every 6 hours rather
-than constantly. Undocumented endpoints (Workday et al.) are deliberately
+(5 req/s), honors `Retry-After`, backs off on 429, and syncs every 6 hours locally
+and once a day for the public copy, rather than constantly. Undocumented endpoints (Workday et al.) are deliberately
 deprioritized and would get a lower limit.

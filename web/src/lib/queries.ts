@@ -20,7 +20,6 @@ export type Job = {
   posted_at: string | null;
   closed_at: string | null;
   description_html?: string | null;
-  description_text?: string | null;
 };
 
 export type Filters = {
@@ -38,6 +37,14 @@ export type Filters = {
 
 const PAGE_SIZE = 50;
 
+/**
+ * Only jobs from the past two weeks are listed: older roles have usually had
+ * hundreds of applicants. Matches the workers' MAX_JOB_AGE_DAYS, which also
+ * deletes them, so this just keeps pages right between syncs.
+ */
+export const MAX_AGE_DAYS = 14;
+const FRESH = `COALESCE(j.posted_at, j.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'`;
+
 /** Filter buckets -> [minYears, maxYears]; null max = open ended. */
 export const EXP_BUCKETS: Record<string, [number, number | null]> = {
   "0-1": [0, 1],
@@ -48,7 +55,7 @@ export const EXP_BUCKETS: Record<string, [number, number | null]> = {
 
 /** Build the shared WHERE clause. Params are appended to `params`. */
 function buildWhere(f: Filters, params: unknown[]): string {
-  const where: string[] = [];
+  const where: string[] = [FRESH];
 
   if (!f.includeClosed) where.push("j.closed_at IS NULL");
 
@@ -115,7 +122,7 @@ function buildWhere(f: Filters, params: unknown[]): string {
     params.push(Number(f.since));
     where.push(`j.posted_at > now() - make_interval(days => $${params.length})`);
   }
-  return where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return `WHERE ${where.join(" AND ")}`;
 }
 
 /**
@@ -137,7 +144,7 @@ export async function listJobs(f: Filters): Promise<{ jobs: Job[]; nextCursor: s
     const [ts, id] = f.cursor.split("|");
     params.push(ts, id);
     const tsIdx = params.length - 1;
-    sql += ` ${sql.includes("WHERE") ? "AND" : "WHERE"} (j.posted_at, j.id) < ($${tsIdx}::timestamptz, $${params.length}::bigint)`;
+    sql += ` AND (j.posted_at, j.id) < ($${tsIdx}::timestamptz, $${params.length}::bigint)`;
   }
 
   params.push(PAGE_SIZE + 1);
@@ -161,7 +168,7 @@ export async function getJob(id: string): Promise<Job | null> {
             j.department, j.location_raw, j.locations, j.country, j.region,
             j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
             j.exp_min_years, j.exp_max_years, j.exp_source,
-            j.description_html, j.description_text
+            j.description_html
        FROM jobs j JOIN companies c ON c.id = j.company_id
       WHERE j.id = $1`,
     [id],
@@ -173,23 +180,23 @@ export async function facets() {
   const [companies, countries, departments, totals] = await Promise.all([
     query<{ name: string; n: string }>(
       `SELECT c.name, count(*) n FROM jobs j JOIN companies c ON c.id=j.company_id
-        WHERE j.closed_at IS NULL GROUP BY c.name ORDER BY n DESC`,
+        WHERE j.closed_at IS NULL AND ${FRESH} GROUP BY c.name ORDER BY n DESC`,
     ),
     query<{ country: string; n: string }>(
-      `SELECT country, count(*) n FROM jobs
-        WHERE closed_at IS NULL AND country IS NOT NULL
+      `SELECT country, count(*) n FROM jobs j
+        WHERE closed_at IS NULL AND ${FRESH} AND country IS NOT NULL
         GROUP BY country ORDER BY n DESC LIMIT 25`,
     ),
     query<{ department: string; n: string }>(
-      `SELECT department, count(*) n FROM jobs
-        WHERE closed_at IS NULL AND department IS NOT NULL
+      `SELECT department, count(*) n FROM jobs j
+        WHERE closed_at IS NULL AND ${FRESH} AND department IS NOT NULL
         GROUP BY department ORDER BY n DESC LIMIT 25`,
     ),
     query<{ open: string; remote: string; companies: string }>(
       `SELECT count(*) FILTER (WHERE closed_at IS NULL) open,
               count(*) FILTER (WHERE closed_at IS NULL AND remote) remote,
               (SELECT count(*) FROM companies WHERE enabled) companies
-         FROM jobs`,
+         FROM jobs j WHERE ${FRESH}`,
     ),
   ]);
   return { companies, countries, departments, totals: totals[0] };
@@ -199,7 +206,7 @@ export async function listCompanies() {
   return query(
     `SELECT c.id::text, c.name, c.ats::text, c.board_token, c.enabled,
             c.last_synced_at, c.last_error, c.consecutive_failures, c.source,
-            count(j.id) FILTER (WHERE j.closed_at IS NULL) AS open_jobs
+            count(j.id) FILTER (WHERE j.closed_at IS NULL AND ${FRESH}) AS open_jobs
        FROM companies c LEFT JOIN jobs j ON j.company_id = c.id
       GROUP BY c.id ORDER BY open_jobs DESC, c.name`,
   );

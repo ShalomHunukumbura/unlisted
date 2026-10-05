@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import AddCompany from "@/components/AddCompany";
+import { READ_ONLY } from "@/lib/mode";
 import { listCompanies } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ type Row = {
 };
 
 export default async function CompaniesPage() {
+  if (READ_ONLY) notFound();
   const companies = (await listCompanies()) as unknown as Row[];
 
   return (

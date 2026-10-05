@@ -149,19 +149,30 @@ def sync_cmd(
 ) -> None:
     """Fetch boards and upsert jobs."""
     _setup_logging(verbose)
-    results = sync.sync_all(only=company, stale_hours=stale_hours, workers=workers,
-                            limit=limit)
+    results, pruned = sync.sync_all(only=company, stale_hours=stale_hours, workers=workers,
+                                    limit=limit)
 
     ok = sum(r["status"] == "ok" for r in results)
     total = sum(r.get("fetched", 0) for r in results)
     created = sum(r.get("created", 0) for r in results)
     closed = sum(r.get("closed", 0) for r in results)
+    too_old = sum(r.get("too_old", 0) for r in results)
     for r in results:
         if r["status"] != "ok":
             typer.echo(f"  ! {r['company']}: {r['status']} {r.get('error','')}")
     typer.echo(
         f"\n{ok}/{len(results)} ok · {total} fetched · {created} new · {closed} closed"
+        f" · {too_old} skipped as too old · {pruned} pruned"
     )
+
+
+@app.command("prune")
+def prune_cmd() -> None:
+    """Delete jobs older than MAX_JOB_AGE_DAYS (default 14). Sync does this too."""
+    from .config import settings
+
+    pruned = sync.prune()
+    typer.echo(f"deleted {pruned} jobs older than {settings.max_job_age_days} days")
 
 
 @app.command("stats")
@@ -177,7 +188,7 @@ def stats() -> None:
         cur.execute("SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND remote")
         remote = cur.fetchone()["n"]
         cur.execute(
-            "SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND description_text IS NOT NULL"
+            "SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND description_html IS NOT NULL"
         )
         described = cur.fetchone()["n"]
         cur.execute(

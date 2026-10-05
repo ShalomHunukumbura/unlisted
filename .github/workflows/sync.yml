@@ -1,0 +1,36 @@
+name: Sync jobs
+
+# Keeps the public database fresh: every day, fetch every board, store the
+# past two weeks of jobs, and prune the rest. Writes to the database in the
+# DATABASE_URL secret (Neon), with raw payloads off so it fits the free tier.
+on:
+  schedule:
+    - cron: "17 0 * * *"    # 00:17 UTC (05:47 in Sri Lanka), off the busy :00
+  workflow_dispatch:
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      STORE_RAW: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e workers
+      - name: Apply migrations
+        run: MIGRATE_URL="$DATABASE_URL" ./db/migrate.sh
+      - name: Sync every board
+        run: jobsite sync --workers 4
+        working-directory: workers
+      - name: Summary
+        if: always()
+        run: jobsite stats | tee -a "$GITHUB_STEP_SUMMARY"
+        working-directory: workers

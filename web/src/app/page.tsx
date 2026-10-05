@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import FilterBar from "@/components/FilterBar";
 import { expLabel } from "@/lib/experience";
+import { READ_ONLY } from "@/lib/mode";
 import { facets, listJobs, type Filters } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -52,16 +53,18 @@ export default async function Home(props: PageProps<'/'>) {
     <main className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">ATS Job Board</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Unlisted</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            {Number(fc.totals.open).toLocaleString()} open roles ·{" "}
+            {Number(fc.totals.open).toLocaleString()} open roles posted in the past 2 weeks ·{" "}
             {Number(fc.totals.remote).toLocaleString()} remote ·{" "}
             {fc.totals.companies} companies
           </p>
         </div>
-        <Link href="/admin/companies" className="text-sm text-neutral-500 hover:underline">
-          Manage companies →
-        </Link>
+        {!READ_ONLY && (
+          <Link href="/admin/companies" className="text-sm text-neutral-500 hover:underline">
+            Manage companies →
+          </Link>
+        )}
       </header>
 
       <Suspense fallback={<div className="h-9" />}>
