@@ -177,6 +177,15 @@ def prune_cmd() -> None:
     typer.echo(f"deleted {pruned} jobs older than {settings.max_job_age_days} days")
 
 
+@app.command("backfill-pay")
+def backfill_pay_cmd() -> None:
+    """One-off: read pay ranges out of the descriptions of jobs already stored."""
+    _setup_logging()
+    changed = sync.backfill_pay(
+        on_batch=lambda last_id, n: typer.echo(f"  up to id {last_id}: {n} jobs with pay so far"))
+    typer.echo(f"done: pay found for {changed} jobs")
+
+
 @app.command("stats")
 def stats() -> None:
     """Quick health check of what's in the database."""
@@ -193,6 +202,11 @@ def stats() -> None:
             "SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND description_html IS NOT NULL"
         )
         described = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND comp_period IS NOT NULL")
+        with_pay = cur.fetchone()["n"]
+        # Neon's free tier stops writes at 512 MB; this is the figure it counts.
+        cur.execute("SELECT pg_database_size(current_database()) / 1048576 AS mb")
+        size_mb = cur.fetchone()["mb"]
         cur.execute(
             """SELECT c.name, c.ats::text AS ats, count(j.id) n
                  FROM companies c LEFT JOIN jobs j
@@ -213,8 +227,9 @@ def stats() -> None:
     for row in by_ats:
         pending = f", {row['unsynced']} not yet synced" if row["unsynced"] else ""
         typer.echo(f"  {row['ats']:12} {row['n']:5}{pending}")
-    typer.echo(f"open jobs : {open_jobs}  (remote {remote}, with description {described})")
+    typer.echo(f"open jobs : {open_jobs}  (remote {remote}, with description {described}, with pay {with_pay})")
     typer.echo(f"closed    : {closed_jobs}")
+    typer.echo(f"db size   : {size_mb} MB")
     typer.echo("\ntop boards:")
     for row in top:
         typer.echo(f"  {row['name'][:24]:24} {row['ats']:11} {row['n']:5}")

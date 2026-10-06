@@ -14,6 +14,7 @@ from .. import http
 from ..html import clean_description
 from ..locations import normalize
 from ..models import Company, NormalizedJob
+from ..pay import LEVER_INTERVALS
 from .base import Connector, ValidationResult, parse_dt, register
 
 
@@ -58,6 +59,12 @@ class Lever(Connector):
             parts.append(raw["additional"])
         desc_html, desc_text = clean_description("".join(p for p in parts if p))
 
+        # Optional structured pay; otherwise base.py looks in the text.
+        salary = raw.get("salaryRange") or {}
+        period = LEVER_INTERVALS.get(salary.get("interval") or "")
+        if not (period and salary.get("min")):
+            salary, period = {}, None
+
         return NormalizedJob(
             external_id=str(raw.get("id")),
             title=title,
@@ -65,6 +72,10 @@ class Lever(Connector):
             department=categories.get("department") or categories.get("team"),
             team=categories.get("team"),
             employment_type=categories.get("commitment"),
+            comp_min=salary.get("min"),
+            comp_max=salary.get("max") or salary.get("min"),
+            comp_currency=salary.get("currency"),
+            comp_period=period,
             description_html=desc_html,
             description_text=desc_text,
             posted_at=parse_dt(raw.get("createdAt")),

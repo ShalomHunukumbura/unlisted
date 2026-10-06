@@ -12,6 +12,7 @@ from .. import http
 from ..html import clean_description
 from ..locations import normalize
 from ..models import Company, NormalizedJob
+from ..pay import ASHBY_INTERVALS
 from .base import Connector, ValidationResult, parse_dt, register
 
 BASE = "https://api.ashbyhq.com/posting-api/job-board"
@@ -56,14 +57,16 @@ class Ashby(Connector):
 
         desc_html, desc_text = clean_description(raw.get("descriptionHtml"))
 
-        comp_min = comp_max = comp_cur = None
+        # The components also list equity, bonus and commission, sometimes
+        # first: only a salary in a known period counts as pay.
+        comp_min = comp_max = comp_cur = comp_period = None
         comp = raw.get("compensation") or {}
-        summary = comp.get("summaryComponents") or []
-        if summary:
-            first = summary[0]
-            comp_min = first.get("minValue")
-            comp_max = first.get("maxValue")
-            comp_cur = first.get("currencyCode")
+        for part in comp.get("summaryComponents") or []:
+            period = ASHBY_INTERVALS.get(part.get("interval") or "")
+            if part.get("compensationType") == "Salary" and period and part.get("minValue"):
+                comp_min, comp_max = part["minValue"], part.get("maxValue") or part["minValue"]
+                comp_cur, comp_period = part.get("currencyCode"), period
+                break
 
         return NormalizedJob(
             external_id=str(raw.get("id")),
@@ -75,6 +78,7 @@ class Ashby(Connector):
             comp_min=comp_min,
             comp_max=comp_max,
             comp_currency=comp_cur,
+            comp_period=comp_period,
             description_html=desc_html,
             description_text=desc_text,
             posted_at=parse_dt(raw.get("publishedAt")),

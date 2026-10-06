@@ -25,9 +25,10 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import connectors
+from . import connectors, pay
 from .config import settings
 from .db import close_pool, cursor
+from .html import to_text
 from .models import Company, NormalizedJob
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,52 @@ def prune(cutoff: datetime | None = None, company_id: int | None = None) -> int:
         )
         return pruned
 
+
+
+def backfill_pay(batch: int = 1000, on_batch=None, company_id: int | None = None) -> int:
+    """Fill pay ranges for jobs stored before pay.py existed. Returns rows changed.
+
+    Text-derived pay is left out of content_hash, so the sync never rewrites a
+    job just to add it; this does it once instead. Every UPDATE writes a new
+    row version (and recomputes the search vectors), about 2.5 KB a job, so it
+    goes in batches with a VACUUM after each: that frees the old versions for
+    the next batch to reuse, instead of growing the table by ~45 MB at once.
+    """
+    last_id, changed = 0, 0
+    while True:
+        with cursor() as cur:
+            cur.execute(
+                # Ashby jobs with an old stored value are left to the sync: the
+                # salary field changed their fingerprint, so it rewrites them.
+                "SELECT id, description_html, country FROM jobs "
+                "WHERE id > %s AND comp_period IS NULL "
+                "AND (ats <> 'ashby' OR comp_min IS NULL) "
+                "AND (%s::bigint IS NULL OR company_id = %s) ORDER BY id LIMIT %s",
+                (last_id, company_id, company_id, batch),
+            )
+            rows = cur.fetchall()
+        if not rows:
+            return changed
+        last_id = rows[-1]["id"]
+
+        updates = []
+        for r in rows:
+            found = pay.from_text(to_text(r["description_html"]), r["country"])
+            if found:
+                updates.append((found["comp_min"], found["comp_max"], found["comp_currency"],
+                                found["comp_period"], r["id"]))
+        if updates:
+            with cursor(commit=True) as cur:
+                cur.executemany(
+                    "UPDATE jobs SET comp_min=%s, comp_max=%s, comp_currency=%s, comp_period=%s "
+                    "WHERE id=%s",
+                    updates,
+                )
+            with psycopg.connect(settings.database_url, autocommit=True) as conn:
+                conn.execute("VACUUM jobs")
+            changed += len(updates)
+        if on_batch:
+            on_batch(last_id, changed)
 
 def load_companies(only: str | None = None, enabled_only: bool = True,
                    stale_hours: int | None = None,
@@ -174,7 +221,7 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int,
         job.department, job.team, job.employment_type,
         job.location_raw, job.locations, job.country, job.region,
         job.remote, job.remote_scope, job.open_to,
-        job.comp_min, job.comp_max, job.comp_currency,
+        job.comp_min, job.comp_max, job.comp_currency, job.comp_period,
         job.description_html,
         job.exp_min_years, job.exp_max_years, job.exp_source,
         job.posted_at, job.ats_updated_at,
@@ -188,12 +235,12 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int,
             department, team, employment_type,
             location_raw, locations, country, region,
             remote, remote_scope, open_to,
-            comp_min, comp_max, comp_currency,
+            comp_min, comp_max, comp_currency, comp_period,
             description_html,
             exp_min_years, exp_max_years, exp_source,
             posted_at, ats_updated_at,
             last_seen_run, raw, content_hash, board_checked_before
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (ats, company_id, external_id) DO UPDATE SET
             title=EXCLUDED.title,
             apply_url=EXCLUDED.apply_url,
@@ -207,9 +254,16 @@ def upsert_job(cur, company: Company, job: NormalizedJob, run_id: int,
             remote=EXCLUDED.remote,
             remote_scope=EXCLUDED.remote_scope,
             open_to=EXCLUDED.open_to,
-            comp_min=EXCLUDED.comp_min,
-            comp_max=EXCLUDED.comp_max,
-            comp_currency=EXCLUDED.comp_currency,
+            -- Pay is one unit too, and like the description a pass without
+            -- text must not wipe a range read from it.
+            comp_min=CASE WHEN EXCLUDED.comp_min IS NOT NULL
+                          THEN EXCLUDED.comp_min ELSE jobs.comp_min END,
+            comp_max=CASE WHEN EXCLUDED.comp_min IS NOT NULL
+                          THEN EXCLUDED.comp_max ELSE jobs.comp_max END,
+            comp_currency=CASE WHEN EXCLUDED.comp_min IS NOT NULL
+                               THEN EXCLUDED.comp_currency ELSE jobs.comp_currency END,
+            comp_period=CASE WHEN EXCLUDED.comp_min IS NOT NULL
+                             THEN EXCLUDED.comp_period ELSE jobs.comp_period END,
             -- never overwrite a stored description with NULL: a listings-only
             -- pass must not wipe what a content pass already fetched.
             description_html=COALESCE(EXCLUDED.description_html, jobs.description_html),

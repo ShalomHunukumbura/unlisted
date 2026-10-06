@@ -20,6 +20,12 @@ the employer's own apply page.
   one country, and there's a filter for roles open from Sri Lanka.
 - **Experience level** from what the description asks for ("3+ years"), falling
   back to the title.
+- **Pay** where the posting states it: Ashby and Lever's pay fields, or the range
+  written in the description ("$120,000 - $150,000 USD"), with a filter for it.
+- **Each role once.** A company posting the same role for twelve cities shows up
+  as one row, "+11 more locations", instead of twelve.
+- **Follow a search** with RSS: every search and filter has a feed at `/feed?...`,
+  so new matches arrive in a feed reader with no account.
 - **Only what's still worth applying to.** Of 227,719 open jobs across all boards on
   the first full sync, 82% were posted over two weeks ago. Those are never stored.
 
@@ -137,6 +143,30 @@ open-ended `5+` one you would still qualify for. The open-ended `5+` bucket
 instead requires `exp_min_years >= 5` — pure overlap would drag in a "1-8 years"
 role, which is not a 5+ job.
 
+## Pay
+
+Stored as `comp_min`, `comp_max`, `comp_currency` and `comp_period` (year, month
+or hour), base pay only:
+
+1. **Ashby** lists pay as components, sometimes equity or bonus first; only a
+   `Salary` component counts. **Lever** has an optional `salaryRange`.
+2. **Everything else** is read from the description (`workers/src/jobsite/pay.py`).
+   About half of Greenhouse postings state a range, mostly because of US pay
+   transparency laws. A wrong figure is worse than none, so a range needs a
+   currency and both ends plausible for its period; a lone figure only counts
+   right after "salary", "base pay" and the like; OTE and "+ $X variable" are
+   skipped. A bare `$` follows the job's country (CAD in Canada, AUD in
+   Australia).
+
+The pay filter's `$100K+` tiers mean the top of the range reaches the figure,
+in US dollars a year; other currencies aren't converted.
+
+Pay read from the text is left out of the job's change fingerprint: it adds
+nothing the description doesn't already cover, and leaving it in would make
+the next sync rewrite every job with pay at once, more than the 512 MB database
+has room for. `jobsite backfill-pay` fills it in for jobs stored earlier, in
+batches with a `VACUUM` after each.
+
 ## Design decisions worth knowing
 
 **Only the past two weeks.** By two weeks most roles have hundreds of applicants,
@@ -185,7 +215,7 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
   migrations 0006 and 0008 for what was cut and measured. A schema change that
   rewrites the jobs table needs `db/deploy/reset-jobs.sql` first (it refills on the
   next sync).
-- **Sync:** `.github/workflows/sync.yml` runs every hour (at :17, sometimes a little
+- **Sync:** `.github/workflows/sync.yml` runs every hour (at :23, sometimes a little
   late: GitHub schedules are best-effort). `jobsite sync --due` checks boards with open
   jobs every run and quiet boards every ~6 hours, about 5,200 of 7,733 per run. It
   downloads everything with no database connection open (~15-20 min, set by the
@@ -212,6 +242,7 @@ jobsite add-url https://jobs.ashbyhq.com/linear     # or just: jobsite add-url L
 jobsite import-boards db/seed/ashby_boards.txt --ats ashby
 jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 14 days
 jobsite prune                                      # just the prune
+jobsite backfill-pay                               # one-off: pay for jobs stored before pay.py
 jobsite stats
 python -m jobsite.scheduler                          # sync every 6h
 ```

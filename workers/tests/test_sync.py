@@ -217,3 +217,19 @@ def test_a_board_that_fails_to_write_does_not_stop_the_run(test_company, monkeyp
     results = sync.write_all([broken, good], trigger="test")
     assert [r["status"] for r in results] == ["error", "ok"]
     assert "database hiccup" in results[0]["error"]
+
+
+def test_backfill_reads_pay_from_stored_descriptions(test_company, monkeypatch):
+    posting = job("a")
+    posting.description_html = "<p>Salary range: $120,000 - $150,000 USD</p>"
+    monkeypatch.setattr(connectors, "get", lambda ats: FakeBoard([posting]))
+    sync.sync_company(test_company)
+    with cursor(commit=True) as cur:  # as stored before pay.py existed
+        cur.execute("UPDATE jobs SET comp_min=NULL, comp_max=NULL, comp_currency=NULL, comp_period=NULL "
+                    "WHERE company_id=%s", (test_company.id,))
+    sync.backfill_pay(company_id=test_company.id)
+    with cursor() as cur:
+        cur.execute("SELECT comp_min, comp_max, comp_currency, comp_period FROM jobs WHERE company_id=%s",
+                    (test_company.id,))
+        assert cur.fetchone() == {"comp_min": 120000, "comp_max": 150000,
+                                  "comp_currency": "USD", "comp_period": "year"}

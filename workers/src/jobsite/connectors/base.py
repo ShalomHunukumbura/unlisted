@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar, Iterable
 
 from ..experience import infer as infer_experience
+from ..pay import from_text as pay_from_text
 from ..remote_scope import classify as classify_open_to
 from ..models import Company, NormalizedJob
 
@@ -50,6 +51,12 @@ class Connector(ABC):
         if job.exp_min_years is None and job.exp_source is None:
             for key, value in infer_experience(job.title, job.description_text).items():
                 setattr(job, key, value)
+        if job.comp_min is None:
+            found = pay_from_text(job.description_text, job.country)
+            if found:
+                for key, value in found.items():
+                    setattr(job, key, value)
+                job.pay_from_text = True
         if job.open_to is None:
             job.open_to = classify_open_to(
                 job.location_raw, job.remote, job.country, job.region

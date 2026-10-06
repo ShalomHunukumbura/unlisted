@@ -44,6 +44,9 @@ class NormalizedJob:
     comp_min: float | None = None
     comp_max: float | None = None
     comp_currency: str | None = None
+    comp_period: str | None = None  # year | month | hour
+    # Pay read from description_text (pay.py) rather than an ATS field.
+    pay_from_text: bool = False
 
     description_html: str | None = None
     description_text: str | None = None
@@ -61,18 +64,24 @@ class NormalizedJob:
     def content_hash(self) -> str:
         """Fingerprint of the fields we care about, so a sync can skip no-op writes
         and avoid churning the GIN index every run."""
-        payload = json.dumps(
-            [
-                self.title, self.apply_url, self.department, self.team,
-                self.employment_type, self.location_raw, sorted(self.locations),
-                self.remote, self.remote_scope, self.open_to,
-                self.comp_min, self.comp_max,
-                self.comp_currency, self.description_text,
-                self.exp_min_years, self.exp_max_years,
-                self.posted_at.isoformat() if self.posted_at else None,
-                self.ats_updated_at.isoformat() if self.ats_updated_at else None,
-            ],
-            default=str,
-            sort_keys=True,
-        )
+        # Pay read from the text adds nothing the text doesn't already cover,
+        # so it stays out: otherwise improving the parser would rewrite every
+        # job with pay at once, which a 512 MB database can't absorb.
+        comp = (None, None, None, None) if self.pay_from_text else (
+            self.comp_min, self.comp_max, self.comp_currency, self.comp_period)
+        fields = [
+            self.title, self.apply_url, self.department, self.team,
+            self.employment_type, self.location_raw, sorted(self.locations),
+            self.remote, self.remote_scope, self.open_to,
+            comp[0], comp[1],
+            comp[2], self.description_text,
+            self.exp_min_years, self.exp_max_years,
+            self.posted_at.isoformat() if self.posted_at else None,
+            self.ats_updated_at.isoformat() if self.ats_updated_at else None,
+        ]
+        # Only when known, so adding the field didn't change (and rewrite) the
+        # fingerprint of every job without pay.
+        if comp[3]:
+            fields.append(comp[3])
+        payload = json.dumps(fields, default=str, sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()

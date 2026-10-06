@@ -8,8 +8,16 @@ name: Sync jobs
 # database is awake for minutes per run, which keeps Neon's free compute safe.
 on:
   schedule:
-    - cron: "17 * * * *"    # hourly at :17, off the busy :00 (GitHub may start it a little late)
+    # Hourly at :23, off the busy :00 (GitHub may start it a little late). If
+    # scheduled runs ever stop appearing (e.g. after a repo rename), changing
+    # this line makes GitHub register the schedule again.
+    - cron: "23 * * * *"
   workflow_dispatch:
+    inputs:
+      backfill_pay:
+        description: "Also read pay ranges out of jobs stored before pay parsing existed (one-off)"
+        type: boolean
+        default: false
   # Also when this file changes, so an edit is tested right away (and so GitHub
   # registers the workflow: one with only schedule/dispatch wasn't picked up).
   push:
@@ -35,6 +43,10 @@ jobs:
       - run: pip install -e workers
       - name: Apply migrations
         run: MIGRATE_URL="$DATABASE_URL" ./db/migrate.sh
+      - name: Backfill pay ranges
+        if: inputs.backfill_pay
+        run: jobsite backfill-pay
+        working-directory: workers
       - name: Sync the boards that are due
         run: jobsite sync --due --workers 6
         working-directory: workers
