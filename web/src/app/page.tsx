@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import AlertSignup from "@/components/AlertSignup";
 import FilterBar from "@/components/FilterBar";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
+import { cleanFilters } from "@/lib/alerts";
 import { READ_ONLY } from "@/lib/mode";
 import { MAX_AGE_DAYS, facets, fresh, hasOpenJobs, lastSync, listJobs, type Filters } from "@/lib/queries";
 import { ago } from "@/lib/time";
@@ -148,19 +150,7 @@ export default async function Home(props: PageProps<'/'>) {
         />
       </Suspense>
 
-      <div className="mt-5 flex justify-end">
-        <a
-          href={`/feed${query ? `?${query}` : ""}`}
-          className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-ink-strong"
-          title="Follow new roles matching these filters in a feed reader"
-        >
-          <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-            <path d="M3 3a10 10 0 0110 10M3 7.5A5.5 5.5 0 018.5 13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <circle cx="3.75" cy="12.25" r="1.25" fill="currentColor" />
-          </svg>
-          {filtered ? "RSS feed for this search" : "RSS feed"}
-        </a>
-      </div>
+      <AlertSignup filters={cleanFilters(sp) as Record<string, string>} rss={`/feed${query ? `?${query}` : ""}`} />
 
       <ul className="mt-2 border-t border-line">
         {jobs.map((job) => {

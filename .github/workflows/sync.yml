@@ -50,6 +50,17 @@ jobs:
       - name: Sync the boards that are due
         run: jobsite sync --due --workers 6
         working-directory: workers
+      # The site sends them (the filters live in the web code); this just says
+      # the new jobs are in. Skipped until the ALERTS_SECRET secret exists.
+      - name: Email alerts
+        if: ${{ !cancelled() }}
+        env:
+          ALERTS_SECRET: ${{ secrets.ALERTS_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://unlisted-tau.vercel.app' }}
+        run: |
+          if [ -z "$ALERTS_SECRET" ]; then echo "ALERTS_SECRET not set, skipping"; exit 0; fi
+          curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $ALERTS_SECRET" \
+            "$SITE_URL/api/alerts/send" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Summary
         if: always()
         run: jobsite stats | tee -a "$GITHUB_STEP_SUMMARY"

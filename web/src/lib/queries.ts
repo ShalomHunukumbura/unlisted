@@ -243,6 +243,43 @@ export function listJobs(f: Filters) {
   return f.q ? listJobsUncached(f) : listJobsCached(f);
 }
 
+/** The filters an alert can save: the home page's, minus paging and "posted within". */
+export const ALERT_FILTER_KEYS = ["q", "remote", "country", "company", "department", "exp", "pay"] as const;
+
+/**
+ * Roles first seen in (after, until] that match the filters, for an alert
+ * email. Same WHERE as the home page, so an alert never disagrees with the
+ * search it was made from. One posting per role, newest first.
+ *
+ * The posted date must also be within a day of `after`: when a board is added,
+ * or the jobs table is refilled, everything on it is "first seen" at once, and
+ * none of that is news.
+ */
+export async function newMatches(f: Filters, after: string, until: string, limit = 25) {
+  const params: unknown[] = [];
+  const where = buildWhere(f, params);
+  params.push(after, until, limit);
+  const [a, u, l] = [params.length - 2, params.length - 1, params.length];
+  const rows = await query<Job & { first_seen_at: string }>(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (j.company_id, lower(j.title))
+              j.id::text, j.title, c.name AS company_name, j.location_raw,
+              j.remote, j.open_to, j.region, j.country, j.department,
+              j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
+              j.posted_at, j.first_seen_at
+         FROM jobs j JOIN companies c ON c.id = j.company_id
+         ${where}
+          AND j.first_seen_at > $${a} AND j.first_seen_at <= $${u}
+          AND COALESCE(j.posted_at, j.first_seen_at) > $${a}::timestamptz - interval '1 day'
+        ORDER BY j.company_id, lower(j.title), j.first_seen_at DESC
+     ) m
+     ORDER BY first_seen_at DESC
+     LIMIT $${l}`,
+    params,
+  );
+  return rows.map((r) => ({ ...r, posted_at: iso(r.posted_at), first_seen_at: iso(r.first_seen_at)! }));
+}
+
 // cache(): the job page and its generateMetadata both ask for the same job.
 export const getJob = cache(async function getJob(id: string): Promise<Job | null> {
   if (!/^\d{1,18}$/.test(id)) return null; // not a bigint: Postgres would throw

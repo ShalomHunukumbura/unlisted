@@ -24,8 +24,9 @@ the employer's own apply page.
   written in the description ("$120,000 - $150,000 USD"), with a filter for it.
 - **Each role once.** A company posting the same role for twelve cities shows up
   as one row, "+11 more locations", instead of twelve.
-- **Follow a search** with RSS: every search and filter has a feed at `/feed?...`,
-  so new matches arrive in a feed reader with no account.
+- **Follow a search** by email or RSS. "Email me new matches" saves the current
+  filters; after confirming, you get one email after each hourly update that
+  found something new. Every search also has a feed at `/feed?...`.
 - **Only what's still worth applying to.** Of 227,719 open jobs across all boards on
   the first full sync, 82% were posted over two weeks ago. Only the past week is stored.
 
@@ -229,6 +230,13 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
 - **Site:** Vercel, root directory `web`, with `DATABASE_URL` and
   `JOBSITE_READ_ONLY=1`. Read-only mode returns 404 for the admin page and its API,
   which run the CLI on the server and have no auth.
+- **Email alerts** go out through Gmail's SMTP (free, ~500 a day; the site caps
+  itself at 450). Vercel needs `SMTP_USER` (the Gmail address), `SMTP_PASS` (a
+  Google app password) and `ALERTS_SECRET`; GitHub needs the same
+  `ALERTS_SECRET` as a secret. After each sync the workflow POSTs to
+  `/api/alerts/send`, which runs the same filter code as the search page.
+  Signing up only sends a confirmation email; nothing else is sent until it's
+  clicked.
 - **Companies** are managed locally. `make push-companies DEPLOY_URL=...` copies new
   ones to the deployed database (existing ones are left alone).
 
