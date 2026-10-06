@@ -1,6 +1,7 @@
 """psycopg3 connection pool. Python owns every write to this database."""
 from contextlib import contextmanager
 
+import psycopg
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 
@@ -23,6 +24,14 @@ def cursor(commit: bool = False):
             yield cur
         if commit:
             conn.commit()
+
+
+def vacuum_jobs() -> None:
+    """Make space freed by deletes and updates reusable now, not whenever
+    autovacuum gets to it. VACUUM can't run in a transaction, hence its own
+    autocommit connection."""
+    with psycopg.connect(settings.database_url, autocommit=True) as conn:
+        conn.execute("VACUUM jobs")
 
 
 def close_pool() -> None:

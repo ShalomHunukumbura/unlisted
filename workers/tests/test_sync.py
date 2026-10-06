@@ -233,3 +233,41 @@ def test_backfill_reads_pay_from_stored_descriptions(test_company, monkeypatch):
                     (test_company.id,))
         assert cur.fetchone() == {"comp_min": 120000, "comp_max": 150000,
                                   "comp_currency": "USD", "comp_period": "year"}
+
+
+def test_jobs_past_the_age_limit_are_left_for_the_prune_not_closed(test_company, monkeypatch):
+    # Closing them first rewrote every aged-out job right before deleting it:
+    # lowering the limit to 7 days did that to ~20k at once and filled Neon.
+    monkeypatch.setattr(connectors, "get", lambda ats: FakeBoard([job("old"), job("gone")]))
+    sync.sync_company(test_company)
+    with cursor(commit=True) as cur:
+        cur.execute("UPDATE jobs SET posted_at = now() - interval '30 days' "
+                    "WHERE company_id=%s AND external_id='old'", (test_company.id,))
+    before = rows(test_company.id)
+
+    # Next run: the board still lists "old" (skipped as too old), "gone" was removed.
+    stale = job("old")
+    stale.posted_at = datetime.now(timezone.utc) - timedelta(days=30)
+    monkeypatch.setattr(connectors, "get", lambda ats: FakeBoard([stale]))
+    result = sync.sync_company(test_company)
+    after = rows(test_company.id)
+
+    assert result["closed"] == 1 and after["gone"]["closed_at"] is not None
+    assert after["old"]["closed_at"] is None
+    assert after["old"]["updated_at"] == before["old"]["updated_at"]  # never rewritten
+
+
+def test_a_board_whose_failure_cannot_be_recorded_does_not_stop_the_run(test_company, monkeypatch):
+    # A full disk fails the board and then the error record too.
+    good = sync.Fetched(test_company, datetime.now(timezone.utc), jobs=[job("ok")], fetched=1)
+    broken = sync.Fetched(test_company, datetime.now(timezone.utc), jobs=[job("x")], fetched=1)
+    real = sync.write_company
+
+    def flaky(cur, f, trigger):
+        if f.company is broken.company and f is not good:
+            raise RuntimeError("disk full")
+        return real(cur, f, trigger)
+
+    monkeypatch.setattr(sync, "write_company", flaky)
+    results = sync.write_all([broken, good], trigger="test")
+    assert [r["status"] for r in results] == ["error", "ok"]

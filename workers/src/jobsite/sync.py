@@ -27,7 +27,7 @@ from psycopg.types.json import Jsonb
 
 from . import connectors, pay
 from .config import settings
-from .db import close_pool, cursor
+from .db import close_pool, cursor, vacuum_jobs
 from .html import to_text
 from .models import Company, NormalizedJob
 
@@ -41,6 +41,10 @@ SUSPICIOUS_EMPTY_THRESHOLD = 5
 # Tiered schedule for `sync --due`: boards with open jobs are checked every run
 # (hourly), boards with none every few hours. About 40% of boards have nothing
 # from the past week, so this cuts requests without missing much.
+# A prune this big is followed by a VACUUM, so the writes right after it reuse
+# the space. Normal hourly prunes are a few hundred jobs; autovacuum handles those.
+PRUNE_VACUUM_MIN = 2000
+
 ACTIVE_EVERY = timedelta(minutes=50)   # under an hour, so hourly runs don't skip
 QUIET_EVERY = timedelta(hours=6) - timedelta(minutes=10)
 
@@ -115,8 +119,7 @@ def backfill_pay(batch: int = 1000, on_batch=None, company_id: int | None = None
                     "WHERE id=%s",
                     updates,
                 )
-            with psycopg.connect(settings.database_url, autocommit=True) as conn:
-                conn.execute("VACUUM jobs")
+            vacuum_jobs()
             changed += len(updates)
         if on_batch:
             on_batch(last_id, changed)
@@ -351,10 +354,15 @@ def write_company(cur, f: Fetched, trigger: str) -> dict:
     closed = 0
     if not suspicious:
         cur.execute(
+            # Jobs past the age limit were skipped, not removed from the board:
+            # they're about to be pruned, and closing them first would rewrite
+            # each one for nothing. Lowering the limit from 14 to 7 days did that
+            # to ~20k jobs at once and filled the database.
             "UPDATE jobs SET closed_at=now(), updated_at=now() "
             "WHERE company_id=%s AND closed_at IS NULL "
-            "AND last_seen_run IS DISTINCT FROM %s",
-            (company.id, run_id),
+            "AND last_seen_run IS DISTINCT FROM %s "
+            "AND COALESCE(posted_at, first_seen_at) >= %s",
+            (company.id, run_id, age_cutoff()),
         )
         closed = cur.rowcount
 
@@ -393,8 +401,13 @@ def write_all(fetched: list[Fetched], trigger: str, workers: int = 4) -> list[di
             log.exception("write failed for %s", f.company.name)
             failed = Fetched(f.company, f.started_at, fetched=f.fetched,
                              error=f"write failed: {exc}"[:500])
-            with cursor(commit=True) as cur:
-                return write_company(cur, failed, trigger)
+            try:
+                with cursor(commit=True) as cur:
+                    return write_company(cur, failed, trigger)
+            except Exception:  # noqa: BLE001 - e.g. a full disk: can't log it either
+                log.exception("could not record the failure for %s", f.company.name)
+                return {"company": f.company.name, "status": "error", "error": failed.error,
+                        "fetched": f.fetched}
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(write, fetched))
@@ -414,7 +427,7 @@ def sync_company(company: Company, trigger: str = "manual",
 def sync_all(only: str | None = None, stale_hours: int | None = None,
              trigger: str = "manual", workers: int = 4,
              limit: int | None = None, due: bool = False) -> tuple[list[dict], int]:
-    """Fetch the boards, write them in one burst, then prune.
+    """Fetch the boards, prune, then write them in one burst.
 
     Returns (per-company results, jobs pruned).
     """
@@ -428,9 +441,13 @@ def sync_all(only: str | None = None, stale_hours: int | None = None,
         fetched = list(pool.map(lambda c: fetch_company(c, cutoff), companies))
     t1 = time.monotonic()
 
-    results = write_all(fetched, trigger)
-    # Also catches jobs on boards that weren't synced this time (or keep failing).
+    # Prune first: the writes can then reuse the space the deleted jobs leave,
+    # rather than needing new space. Also catches jobs on boards that weren't
+    # synced this time (or keep failing).
     pruned = prune()
+    if pruned >= PRUNE_VACUUM_MIN:
+        vacuum_jobs()
+    results = write_all(fetched, trigger)
     t2 = time.monotonic()
     close_pool()
     log.info("fetched %s boards in %.0fs, wrote in %.0fs; pruned %s jobs older than %s days",
