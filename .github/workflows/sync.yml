@@ -14,6 +14,10 @@ on:
     - cron: "23 * * * *"
   workflow_dispatch:
     inputs:
+      reset_jobs:
+        description: "Empty the jobs table first and refill it (frees space: the site shows 'Refreshing' for ~30 min)"
+        type: boolean
+        default: false
       backfill_pay:
         description: "Also read pay ranges out of jobs stored before pay parsing existed (one-off)"
         type: boolean
@@ -41,6 +45,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e workers
+      # Deleting jobs frees space only for more jobs: Neon still counts it, so a
+      # new table can't be created at the limit. TRUNCATE hands it back.
+      - name: Reset jobs
+        if: inputs.reset_jobs
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/deploy/reset-jobs.sql
       - name: Apply migrations
         run: MIGRATE_URL="$DATABASE_URL" ./db/migrate.sh
       - name: Backfill pay ranges

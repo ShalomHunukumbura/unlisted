@@ -7,10 +7,11 @@
 --
 -- Run before db/migrate.sh, e.g.:
 --   psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f db/deploy/reset-jobs.sql
-BEGIN;
+--
+-- Two transactions on purpose: TRUNCATE gives the space back only when it
+-- commits, and at the size limit the UPDATE needs that space.
 TRUNCATE jobs, sync_runs;
 UPDATE companies
    SET first_synced_at = NULL,
        last_success_at = NULL,
        last_synced_at  = NULL;
-COMMIT;
