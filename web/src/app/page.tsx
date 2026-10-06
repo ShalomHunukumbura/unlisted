@@ -1,11 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import FilterBar from "@/components/FilterBar";
-import { Tag, remoteLabel } from "@/components/Tags";
+import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
 import { READ_ONLY } from "@/lib/mode";
-import { MAX_AGE_DAYS, facets, fresh, hasOpenJobs, listJobs, type Filters } from "@/lib/queries";
+import { MAX_AGE_DAYS, facets, fresh, hasOpenJobs, lastSync, listJobs, type Filters } from "@/lib/queries";
+import { ago } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,23 @@ function timeAgo(iso: string | null): string {
 }
 
 const n = (value: string | number) => Number(value).toLocaleString("en-US");
+
+// The sync runs hourly; well past that, say so rather than look fresh.
+const STALE_AFTER_MS = 3 * 3_600_000;
+const isStale = (iso: string) => Date.now() - new Date(iso).getTime() > STALE_AFTER_MS;
+
+/** The current filters as a query string, without the page cursor. */
+function filterQuery(sp: Record<string, string | string[] | undefined>): string {
+  return new URLSearchParams(
+    Object.entries(sp).flatMap(([k, v]) => (v && k !== "cursor" ? [[k, String(v)]] : [])) as [string, string][],
+  ).toString();
+}
+
+// Lets feed readers find the RSS feed for whatever search is on screen.
+export async function generateMetadata(props: PageProps<'/'>): Promise<Metadata> {
+  const query = filterQuery(await props.searchParams);
+  return { alternates: { types: { "application/rss+xml": `/feed${query ? `?${query}` : ""}` } } };
+}
 
 /** Shown while the database is empty, e.g. during a full refill after maintenance. */
 function Refreshing() {
@@ -58,23 +77,24 @@ export default async function Home(props: PageProps<'/'>) {
     department: sp.department as string,
     since: sp.since as string,
     exp: sp.exp as string,
+    pay: sp.pay as string,
     cursor: sp.cursor as string,
   };
 
   if (!(await hasOpenJobs())) return <Refreshing />;
 
+  const synced = lastSync();
   let [{ jobs, nextCursor }, fc] = await Promise.all([listJobs(f), facets()]);
   // Jobs exist, so a cached "nothing" is from before a refill: ask again.
   if (Number(fc.totals.open) === 0) fc = await fresh.facets();
   if (jobs.length === 0 && !f.cursor) ({ jobs, nextCursor } = await fresh.listJobs(f));
 
-  const nextParams = new URLSearchParams(
-    Object.entries(sp).flatMap(([k, v]) =>
-      v && k !== "cursor" ? [[k, String(v)]] : [],
-    ) as [string, string][],
-  );
+  const query = filterQuery(sp);
+  const nextParams = new URLSearchParams(query);
   if (nextCursor) nextParams.set("cursor", nextCursor);
-  const filtered = Array.from(nextParams.keys()).some((k) => k !== "cursor");
+  const filtered = query !== "";
+  const syncedAt = await synced;
+  const stale = syncedAt ? isStale(syncedAt) : false;
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-10 sm:pt-16">
@@ -97,6 +117,17 @@ export default async function Home(props: PageProps<'/'>) {
             <dt>Remote</dt>
             <dd className="mt-0.5 text-lg font-medium tabular-nums text-ink-strong">{n(fc.totals.remote)}</dd>
           </div>
+          {syncedAt && (
+            <div>
+              <dt>Updated</dt>
+              <dd
+                className={`mt-0.5 text-lg font-medium tabular-nums ${stale ? "text-yellow-ink" : "text-ink-strong"}`}
+                title={stale ? "The hourly refresh hasn't finished for a while" : "Career pages are re-read every hour"}
+              >
+                <time dateTime={syncedAt}>{ago(syncedAt)}</time>
+              </dd>
+            </div>
+          )}
           {!READ_ONLY && (
             <div>
               <dt>Admin</dt>
@@ -117,10 +148,30 @@ export default async function Home(props: PageProps<'/'>) {
         />
       </Suspense>
 
-      <ul className="mt-6 border-t border-line">
+      <div className="mt-5 flex justify-end">
+        <a
+          href={`/feed${query ? `?${query}` : ""}`}
+          className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-ink-strong"
+          title="Follow new roles matching these filters in a feed reader"
+        >
+          <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
+            <path d="M3 3a10 10 0 0110 10M3 7.5A5.5 5.5 0 018.5 13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="3.75" cy="12.25" r="1.25" fill="currentColor" />
+          </svg>
+          {filtered ? "RSS feed for this search" : "RSS feed"}
+        </a>
+      </div>
+
+      <ul className="mt-2 border-t border-line">
         {jobs.map((job) => {
           const remote = remoteLabel(job);
           const exp = expLabel(job.exp_min_years, job.exp_max_years);
+          const pay = payLabel(job);
+          const more = (job.role_locations ?? 1) > 1
+            ? `+${job.role_locations! - 1} more ${job.role_locations === 2 ? "location" : "locations"}`
+            : (job.role_postings ?? 1) > 1
+              ? `${job.role_postings} openings`
+              : null;
           return (
             <li key={job.id} className="border-b border-line">
               <Link
@@ -134,9 +185,11 @@ export default async function Home(props: PageProps<'/'>) {
                   <p className="mt-1 text-sm text-muted">
                     <span className="text-ink">{job.company_name}</span>
                     {job.location_raw && <> · {job.location_raw}</>}
+                    {more && <span className="text-ink"> · {more}</span>}
                   </p>
-                  {(remote || job.remote_scope === "hybrid" || job.department || exp) && (
+                  {(remote || job.remote_scope === "hybrid" || job.department || exp || pay) && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
+                      {pay && <Tag mono title="Base pay stated on the posting">{pay}</Tag>}
                       {remote && <Tag tone={remote.tone} title={remote.title}>{remote.text}</Tag>}
                       {job.remote_scope === "hybrid" && <Tag>Hybrid</Tag>}
                       {exp && (

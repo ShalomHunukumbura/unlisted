@@ -20,12 +20,22 @@ export type Job = {
   exp_min_years: number | null;
   exp_max_years: number | null;
   exp_source: string | null;
+  // Base pay. numeric comes back from Postgres as a string. Only trusted when
+  // comp_period is set: older rows may hold an equity or bonus figure.
+  comp_min: string | null;
+  comp_max: string | null;
+  comp_currency: string | null;
+  comp_period: "year" | "month" | "hour" | null;
   posted_at: string | null;
   closed_at: string | null;
   description_html?: string | null;
   first_seen_at?: string | null;     // when Unlisted first saw it
   first_synced_at?: string | null;   // when Unlisted started watching its board
   board_checked_before?: string | null; // last check of the board before the job appeared
+  // List rows only: the same role (company + title) posted more than once,
+  // e.g. once per city. The list shows the newest posting for the whole group.
+  role_postings?: number;
+  role_locations?: number;
 };
 
 export type Filters = {
@@ -37,6 +47,7 @@ export type Filters = {
   department?: string;
   since?: string;       // days
   exp?: string;         // "0-1" | "1-2" | "3-5" | "5+" | "unknown"
+  pay?: string;         // "listed" | "100" | "150" | "200" (thousand USD a year)
   cursor?: string;      // "<posted_at ISO>|<id>"
   includeClosed?: boolean;
 };
@@ -58,6 +69,8 @@ export const EXP_BUCKETS: Record<string, [number, number | null]> = {
   "3-5": [3, 5],
   "5+": [5, null],
 };
+
+export const PAY_FLOORS = ["100", "150", "200"];
 
 /** Build the shared WHERE clause. Params are appended to `params`. */
 function buildWhere(f: Filters, params: unknown[]): string {
@@ -138,6 +151,13 @@ function buildWhere(f: Filters, params: unknown[]): string {
       }
     }
   }
+  if (f.pay === "listed") where.push("j.comp_period IS NOT NULL");
+  else if (f.pay && PAY_FLOORS.includes(f.pay)) {
+    // The top of the range reaches the figure: a $120K-$160K role can pay
+    // $150K. Dollars a year only; other currencies aren't converted.
+    params.push(Number(f.pay) * 1000);
+    where.push(`j.comp_currency = 'USD' AND j.comp_period = 'year' AND j.comp_max >= $${params.length}`);
+  }
   if (f.since) {
     params.push(Number(f.since));
     where.push(`j.posted_at > now() - make_interval(days => $${params.length})`);
@@ -154,7 +174,7 @@ function iso(value: unknown): string | null {
   return value instanceof Date ? value.toISOString() : (value as string | null);
 }
 
-// The data changes once a day (the sync), so these are cached across requests
+// The data changes at most hourly (the sync), so these are cached across requests
 // and instances; a count up to 30 minutes old is fine. Bump the key suffix
 // when a query's shape changes.
 const FACETS_TTL = 1800;
@@ -162,14 +182,33 @@ const LIST_TTL = 600;
 
 async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: string | null }> {
   const params: unknown[] = [];
+  const where = buildWhere(f, params);
+  // The same conditions for another posting `s` of the same role. The filters
+  // only name j and c, and c is the same company, so renaming j is enough and
+  // the placeholders are shared.
+  const sibling = `s.company_id = j.company_id AND lower(s.title) = lower(j.title) AND ${where
+    .replace(/^WHERE /, "")
+    .replace(/\bj\./g, "s.")}`;
+  // One row per role: a posting is skipped when a newer posting of the same
+  // role also matches, so the newest one stands for the group (and paging
+  // never shows a role twice). Both lookups use jobs_role_idx.
   let sql = `
     SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
            j.department, j.location_raw, j.locations, j.country, j.region,
            j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
-           j.exp_min_years, j.exp_max_years, j.exp_source
+           j.exp_min_years, j.exp_max_years, j.exp_source,
+           j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
+           r.postings AS role_postings, r.locations AS role_locations
       FROM jobs j
       JOIN companies c ON c.id = j.company_id
-      ${buildWhere(f, params)}`;
+      CROSS JOIN LATERAL (
+        SELECT count(*)::int AS postings, count(DISTINCT s.location_raw)::int AS locations
+          FROM jobs s WHERE ${sibling}
+      ) r
+      ${where}
+       AND NOT EXISTS (
+         SELECT 1 FROM jobs s WHERE ${sibling} AND (s.posted_at, s.id) > (j.posted_at, j.id)
+       )`;
 
   if (f.cursor) {
     const [ts, id] = f.cursor.split("|");
@@ -197,7 +236,7 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
   return { jobs, nextCursor };
 }
 
-const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v1"], { revalidate: LIST_TTL });
+const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v2"], { revalidate: LIST_TTL });
 
 /** Text searches aren't cached: endless one-off combinations would crowd out the rest. */
 export function listJobs(f: Filters) {
@@ -212,6 +251,7 @@ export const getJob = cache(async function getJob(id: string): Promise<Job | nul
             j.department, j.location_raw, j.locations, j.country, j.region,
             j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
             j.exp_min_years, j.exp_max_years, j.exp_source,
+            j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
             j.description_html, j.first_seen_at, c.first_synced_at, j.board_checked_before
        FROM jobs j JOIN companies c ON c.id = j.company_id
       WHERE j.id = $1`,
@@ -229,6 +269,34 @@ export const getJob = cache(async function getJob(id: string): Promise<Job | nul
       }
     : null;
 });
+
+/** Other open postings of the same role (same company and title), e.g. other cities. */
+export async function sameRole(id: string) {
+  return (
+    await query<{ id: string; location_raw: string | null; posted_at: string | null }>(
+      `SELECT s.id::text, s.location_raw, s.posted_at
+         FROM jobs j JOIN jobs s ON s.company_id = j.company_id AND lower(s.title) = lower(j.title)
+        WHERE j.id = $1 AND s.id <> j.id AND s.closed_at IS NULL
+          AND COALESCE(s.posted_at, s.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'
+        ORDER BY s.location_raw NULLS LAST, s.posted_at DESC
+        LIMIT 100`,
+      [id],
+    )
+  ).map((s) => ({ ...s, posted_at: iso(s.posted_at) }));
+}
+
+/**
+ * When the hourly sync last finished a board without errors. Shown on the home
+ * page, so a stalled sync is visible to everyone, including me.
+ */
+async function lastSyncUncached(): Promise<string | null> {
+  const rows = await query<{ at: Date | null }>(
+    `SELECT max(finished_at) AS at FROM sync_runs WHERE status = 'ok'`,
+  );
+  return iso(rows[0]?.at ?? null);
+}
+
+export const lastSync = unstable_cache(lastSyncUncached, ["last-sync-v1"], { revalidate: 60 });
 
 /** What the live "still open?" check needs to find the posting on its ATS. */
 export async function getJobRef(id: string) {

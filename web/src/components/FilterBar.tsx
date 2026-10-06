@@ -150,7 +150,7 @@ export default function FilterBar({ countries, departments }: Props) {
 
   const value = (key: string) => params.get(key) ?? "";
   const active = Array.from(params.keys()).some((k) => k !== "cursor");
-  const folded = ["country", "exp", "department", "since", "company"].filter((k) => params.get(k)).length;
+  const folded = ["country", "exp", "pay", "department", "since", "company"].filter((k) => params.get(k)).length;
 
   return (
     <div role="search">
@@ -214,6 +214,14 @@ export default function FilterBar({ countries, departments }: Props) {
           <option value="3-5">3–5 years</option>
           <option value="5+">5+ years</option>
           <option value="unknown">Not stated</option>
+        </Select>
+
+        <Select label="Pay" value={value("pay")} onChange={(v) => set("pay", v)}>
+          <option value="">Any pay</option>
+          <option value="listed">Pay listed</option>
+          <option value="100">$100K+ a year</option>
+          <option value="150">$150K+ a year</option>
+          <option value="200">$200K+ a year</option>
         </Select>
 
         <Select label="Team" value={value("department")} onChange={(v) => set("department", v)}>

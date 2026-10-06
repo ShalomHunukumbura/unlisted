@@ -3,9 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import LiveCheck from "@/components/LiveCheck";
-import { Tag, remoteLabel } from "@/components/Tags";
+import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
-import { getJob } from "@/lib/queries";
+import { getJob, sameRole } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -77,12 +77,13 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 // are Promises in Next.js 16 and must be awaited.
 export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
   const { id } = await props.params;
-  const job = await getJob(id);
+  const [job, others] = await Promise.all([getJob(id), sameRole(id)]);
   if (!job) notFound();
 
   const remote = remoteLabel(job);
   const exp = expLabel(job.exp_min_years, job.exp_max_years);
   const ats = ATS_LABEL[job.ats] ?? job.ats;
+  const pay = payLabel(job);
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-3xl px-4 pb-16 pt-8 sm:pt-12">
@@ -108,7 +109,7 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           </p>
         )}
 
-        <dl className="mt-8 grid divide-y divide-line border-y border-line sm:grid-cols-3 sm:gap-6 sm:divide-y-0 sm:py-5">
+        <dl className="mt-8 grid divide-y divide-line border-y border-line sm:grid-cols-4 sm:gap-6 sm:divide-y-0 sm:py-5">
           <Fact label="Where">
             <span className="block">{job.location_raw ?? "Not stated"}</span>
             {(remote || job.remote_scope === "hybrid") && (
@@ -125,6 +126,16 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
                 <span className="block text-xs text-muted">
                   {job.exp_source === "title" ? "guessed from the title" : "stated in the description"}
                 </span>
+              </>
+            ) : (
+              <span className="text-muted">Not stated</span>
+            )}
+          </Fact>
+          <Fact label="Pay">
+            {pay ? (
+              <>
+                <span className="font-mono tabular-nums">{pay}</span>
+                <span className="block text-xs text-muted">base, as stated on the posting</span>
               </>
             ) : (
               <span className="text-muted">Not stated</span>
@@ -162,6 +173,26 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           </div>
         )}
       </header>
+
+      {others.length > 0 && (
+        <details className="mt-10 border-y border-line py-4">
+          <summary className="cursor-pointer text-sm text-ink-strong">
+            {others.length} other {others.length === 1 ? "posting" : "postings"} of this role
+          </summary>
+          <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+            {others.map((o) => (
+              <li key={o.id} className="min-w-0">
+                <Link
+                  href={`/jobs/${o.id}`}
+                  className="text-ink underline decoration-line underline-offset-4 transition-colors [overflow-wrap:anywhere] hover:text-ink-strong hover:decoration-current"
+                >
+                  {o.location_raw ?? "Location not stated"}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {job.description_html ? (
         // Already sanitized with nh3 server-side during ingestion; do not
