@@ -170,7 +170,7 @@ def sync_cmd(
 
 @app.command("prune")
 def prune_cmd() -> None:
-    """Delete jobs older than MAX_JOB_AGE_DAYS (default 14). Sync does this too."""
+    """Delete jobs older than MAX_JOB_AGE_DAYS (default 7). Sync does this too."""
     from .config import settings
 
     pruned = sync.prune()

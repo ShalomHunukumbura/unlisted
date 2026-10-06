@@ -2,7 +2,7 @@ name: Sync jobs
 
 # Keeps the public database fresh: every hour, check the boards that are due
 # (those with open jobs every run, quiet ones every ~6 hours), store the past
-# two weeks of jobs, and prune the rest. Writes to the database in the
+# past week of jobs, and prune the rest. Writes to the database in the
 # DATABASE_URL secret (Neon), with raw payloads off so it fits the free tier.
 # The sync downloads everything first and writes in one short burst, so the
 # database is awake for minutes per run, which keeps Neon's free compute safe.

@@ -8,7 +8,7 @@ export default function NotFound() {
         This job isn&apos;t here any more.
       </h1>
       <p className="mt-4 max-w-md text-pretty text-[15px] leading-relaxed text-ink">
-        Unlisted only keeps roles from the past two weeks, so older links stop working. The company may
+        Unlisted only keeps roles from the past week, so older links stop working. The company may
         still be hiring for something similar.
       </p>
       <Link

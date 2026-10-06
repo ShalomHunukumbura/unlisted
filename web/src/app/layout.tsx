@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 const description =
-  "Fresh jobs from 7,700+ company career pages (Greenhouse, Ashby, Lever) in one search. Past two weeks only, every listing links to the employer's own posting.";
+  "Fresh jobs from 7,700+ company career pages (Greenhouse, Ashby, Lever) in one search. Past week only, every listing links to the employer's own posting.";
 
 export const metadata: Metadata = {
   // Absolute URLs for the social preview image; Vercel sets this variable.

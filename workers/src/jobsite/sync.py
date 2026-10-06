@@ -40,7 +40,7 @@ SUSPICIOUS_EMPTY_THRESHOLD = 5
 
 # Tiered schedule for `sync --due`: boards with open jobs are checked every run
 # (hourly), boards with none every few hours. About 40% of boards have nothing
-# from the past two weeks, so this cuts requests without missing much.
+# from the past week, so this cuts requests without missing much.
 ACTIVE_EVERY = timedelta(minutes=50)   # under an hour, so hourly runs don't skip
 QUIET_EVERY = timedelta(hours=6) - timedelta(minutes=10)
 

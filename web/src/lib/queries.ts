@@ -55,11 +55,11 @@ export type Filters = {
 const PAGE_SIZE = 50;
 
 /**
- * Only jobs from the past two weeks are listed: older roles have usually had
+ * Only jobs from the past week are listed: older roles have usually had
  * hundreds of applicants. Matches the workers' MAX_JOB_AGE_DAYS, which also
  * deletes them, so this just keeps pages right between syncs.
  */
-export const MAX_AGE_DAYS = 14;
+export const MAX_AGE_DAYS = 7;
 const FRESH = `COALESCE(j.posted_at, j.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'`;
 
 /** Filter buckets -> [minYears, maxYears]; null max = open ended. */

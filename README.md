@@ -10,10 +10,10 @@ hosted by an applicant tracking system (Greenhouse, Ashby, Lever), and that's wh
 a role appears first. Some are cross-posted to LinkedIn and job boards later; many
 never are, and you only find them if you already know the company. Unlisted reads
 the career pages directly; it doesn't check whether a role is also on other sites. This pulls every one of those boards into a single
-searchable list, keeps only the **past two weeks**, and links each job straight to
+searchable list, keeps only the **past week**, and links each job straight to
 the employer's own apply page.
 
-![Remote jobs open to Sri Lanka, posted in the past two weeks](docs/screenshot.png)
+![Remote jobs open to Sri Lanka, posted in the past week](docs/screenshot.png)
 
 - **Where can I actually work from?** "Remote" often means "remote in the US".
   Each remote job is classified as open to anywhere, to a region (EU, APAC…) or to
@@ -27,7 +27,7 @@ the employer's own apply page.
 - **Follow a search** with RSS: every search and filter has a feed at `/feed?...`,
   so new matches arrive in a feed reader with no account.
 - **Only what's still worth applying to.** Of 227,719 open jobs across all boards on
-  the first full sync, 82% were posted over two weeks ago. Those are never stored.
+  the first full sync, 82% were posted over two weeks ago. Only the past week is stored.
 
 It's a discovery layer, not an application proxy: no accounts, no tracking, and
 every listing links to the real posting. Each job page checks live with the
@@ -169,12 +169,13 @@ batches with a `VACUUM` after each.
 
 ## Design decisions worth knowing
 
-**Only the past two weeks.** By two weeks most roles have hundreds of applicants,
-so older ones are noise. Sync skips jobs posted more than `MAX_JOB_AGE_DAYS`
-(default 14) ago, and every sync ends with a prune that deletes jobs that have
+**Only the past week.** Within a week or two most roles have hundreds of
+applicants, so older ones are noise. Sync skips jobs posted more than
+`MAX_JOB_AGE_DAYS` (default 7; it was 14 until two weeks of every board outgrew
+Neon's free 512 MB) ago, and every sync ends with a prune that deletes jobs that have
 aged out since. Age is `posted_at`, or `first_seen_at` when the ATS gives no
 date. This also keeps the database small (1.16 GB for every open job vs. a
-fraction of that for two weeks), and the web app applies the same window so
+fraction of that for one week), and the web app applies the same window so
 pages are right between syncs.
 
 **Closed, not deleted, within the window.** A job missing from a sync is stamped
@@ -210,9 +211,11 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
 ```
 
 - **Database:** Neon's free tier caps a project at 512 MB. Two weeks of every board
-  is about 380 MB once raw ATS payloads are left out (`STORE_RAW=false`), description
-  words are indexed without positions, and sync logs are kept for 6 hours; see
-  migrations 0006 and 0008 for what was cut and measured. A schema change that
+  was about 390 MB freshly loaded (raw ATS payloads left out with `STORE_RAW=false`,
+  description words indexed without positions, sync logs kept for 6 hours; see
+  migrations 0006 and 0008), but updates leave old row versions behind that
+  Postgres reuses and never hands back, and it reached 489 MB in a day. Hence one
+  week, about half the jobs. A schema change that
   rewrites the jobs table needs `db/deploy/reset-jobs.sql` first (it refills on the
   next sync).
 - **Sync:** `.github/workflows/sync.yml` runs every hour (at :23, sometimes a little
@@ -240,7 +243,7 @@ make push-companies DEPLOY_URL="postgresql://..."
 jobsite discover --seeds ../db/seed/companies.txt
 jobsite add-url https://jobs.ashbyhq.com/linear     # or just: jobsite add-url Linear
 jobsite import-boards db/seed/ashby_boards.txt --ats ashby
-jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 14 days
+jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 7 days
 jobsite prune                                      # just the prune
 jobsite backfill-pay                               # one-off: pay for jobs stored before pay.py
 jobsite stats

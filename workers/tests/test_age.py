@@ -18,12 +18,12 @@ def job(external_id: str, days_old: float | None) -> NormalizedJob:
                          apply_url=f"https://example.com/{external_id}", posted_at=posted)
 
 
-def test_cutoff_is_two_weeks():
-    assert settings.max_job_age_days == 14
-    assert sync.age_cutoff(NOW) == NOW - timedelta(days=14)
+def test_cutoff_is_one_week():
+    assert settings.max_job_age_days == 7
+    assert sync.age_cutoff(NOW) == NOW - timedelta(days=7)
 
 
-@pytest.mark.parametrize("days_old,too_old", [(0, False), (13.9, False), (14.1, True), (90, True), (None, False)])
+@pytest.mark.parametrize("days_old,too_old", [(0, False), (6.9, False), (7.1, True), (90, True), (None, False)])
 def test_is_too_old(days_old, too_old):
     assert sync.is_too_old(job("x", days_old), sync.age_cutoff(NOW)) is too_old
 

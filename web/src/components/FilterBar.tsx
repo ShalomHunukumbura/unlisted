@@ -234,10 +234,9 @@ export default function FilterBar({ countries, departments }: Props) {
         </Select>
 
         <Select label="Posted" value={value("since")} onChange={(v) => set("since", v)}>
-          <option value="">Past 2 weeks</option>
+          <option value="">Past week</option>
           <option value="1">Past 24 hours</option>
           <option value="3">Past 3 days</option>
-          <option value="7">Past week</option>
         </Select>
 
         <CompanyFilter value={value("company")} onChange={(v) => set("company", v)} />
