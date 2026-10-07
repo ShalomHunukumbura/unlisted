@@ -4,6 +4,9 @@ import { useActionState, useState } from "react";
 
 import { subscribeAction } from "@/lib/alertActions";
 
+import InstallApp from "./InstallApp";
+import PushAlert from "./PushAlert";
+
 /**
  * "Email me new matches" for the search on screen. Opens an inline form; the
  * alert starts once the emailed link is confirmed.
@@ -16,6 +19,8 @@ export default function AlertSignup({ filters, rss }: { filters: Record<string, 
   return (
     <div className="mt-5">
       <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-xs text-muted">
+        <InstallApp />
+        <PushAlert filters={filters} />
         <button
           type="button"
           aria-expanded={open}

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
+import ServiceWorker from "@/components/ServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,16 @@ export const metadata: Metadata = {
     siteName: "Unlisted",
     type: "website",
   },
+  // Opened from the home screen on an iPhone: full screen, named "Unlisted".
+  appleWebApp: { capable: true, title: "Unlisted", statusBarStyle: "default" },
+};
+
+// The phone's status bar and Android's task switcher match the page.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfbfa" },
+    { media: "(prefers-color-scheme: dark)", color: "#191918" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -66,6 +77,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
         </footer>
         <Analytics />
+        <ServiceWorker />
       </body>
     </html>
   );

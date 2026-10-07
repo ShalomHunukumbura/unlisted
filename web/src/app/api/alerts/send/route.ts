@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sendAlerts } from "@/lib/alerts";
+import { sendPushAlerts } from "@/lib/push";
 import { siteOrigin } from "@/lib/site";
 
 // Called by the hourly sync workflow once it has finished writing. Whatever
@@ -12,6 +13,10 @@ export async function POST(request: Request) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const report = await sendAlerts(await siteOrigin(), 45_000);
-  return NextResponse.json(report);
+  const started = Date.now();
+  const origin = await siteOrigin();
+  // Push first: it's quick and has no daily cap; email gets the rest of the time.
+  const push = await sendPushAlerts(origin, started + 20_000);
+  const email = await sendAlerts(origin, 45_000 - (Date.now() - started));
+  return NextResponse.json({ ...email, push });
 }

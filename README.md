@@ -237,6 +237,15 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
   `/api/alerts/send`, which runs the same filter code as the search page.
   Signing up only sends a confirmation email; nothing else is sent until it's
   clicked.
+- **App and push alerts:** the site is a PWA (manifest, `public/sw.js`), so
+  phones can install it from the browser ("Install app" on Android, Share → Add
+  to Home Screen on iPhone). "Notify this device" saves the search with the
+  browser's push subscription and the same `/api/alerts/send` call sends web
+  push notifications: free, no daily cap, no confirmation email. Vercel needs
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` from
+  `npx web-push generate-vapid-keys` (redeploy after setting them: the public
+  key is built into the page). iPhones only get push once the site is on the
+  home screen.
 - **Companies** are managed locally. `make push-companies DEPLOY_URL=...` copies new
   ones to the deployed database (existing ones are left alone).
 
