@@ -1,14 +1,17 @@
 import { randomBytes } from "node:crypto";
 
-import { countryName, payLabel } from "@/components/Tags";
+import { createElement } from "react";
+
+import { countryName } from "@/components/Tags";
+import AlertEmail from "@/emails/AlertEmail";
+import ConfirmEmail from "@/emails/ConfirmEmail";
 
 import { query } from "./db";
-import { escapeHtml, sendMail } from "./mail";
+import { DAILY_EMAILS, sendMail } from "./mail";
 import { ALERT_FILTER_KEYS, newMatches, type Filters } from "./queries";
 
-// Gmail's limit is about 500 emails a day; stop short of it so the account
-// is never suspended. Alerts that don't fit wait for the next run.
-export const DAILY_EMAILS = 450;
+// DAILY_EMAILS is the provider's cap (mail.ts); alerts that don't fit wait
+// for the next run.
 // Signup emails: a form anyone can submit must not become a way to spam.
 export const CONFIRMS_PER_HOUR = 40;
 const RESEND_CONFIRM_AFTER_MIN = 10;
@@ -131,11 +134,7 @@ export async function subscribe(rawEmail: string, filters: Filters, origin: stri
   await sendMail({
     to: email,
     subject: `Confirm your Unlisted alert: ${what}`,
-    text: `Someone (hopefully you) asked Unlisted to email ${email} when new roles match:\n\n  ${what}\n\nConfirm here: ${link}\n\nIf it wasn't you, ignore this email and nothing more will be sent.\n`,
-    html: `<p>Someone (hopefully you) asked Unlisted to email ${escapeHtml(email)} when new roles match:</p>
-<p><strong>${escapeHtml(what)}</strong></p>
-<p><a href="${escapeHtml(link)}">Confirm the alert</a></p>
-<p style="color:#777">If it wasn't you, ignore this email and nothing more will be sent.</p>`,
+    email: createElement(ConfirmEmail, { email, what, link }),
   });
   await query(`INSERT INTO alert_sends (subscription_id, kind) VALUES ($1, 'confirm')`, [sub.id]);
   return sent;
@@ -171,33 +170,22 @@ type Match = Awaited<ReturnType<typeof newMatches>>[number];
 
 function alertEmail(sub: Subscription, jobs: Match[], origin: string) {
   const what = describeFilters(sub.filters);
-  const unsubscribeUrl = `${origin}/alerts/unsubscribe/${sub.token}`;
-  const all = searchUrl(origin, sub.filters);
-  const lines = jobs.map((j) => {
-    const details = [j.company_name, j.location_raw, payLabel(j)].filter(Boolean).join(" · ");
-    return { title: j.title, details, url: `${origin}/jobs/${j.id}` };
-  });
-  const count = `${jobs.length}${jobs.length === 25 ? "+" : ""} new ${jobs.length === 1 ? "role" : "roles"}`;
-
+  const more = jobs.length === 25; // newMatches' limit
+  const count = `${jobs.length}${more ? "+" : ""} new ${jobs.length === 1 ? "role" : "roles"}`;
   return {
     to: sub.email,
     subject: `${count}: ${what}`,
-    text:
-      `${count} for ${what}\n\n` +
-      lines.map((l) => `${l.title}\n${l.details}\n${l.url}`).join("\n\n") +
-      `\n\nAll matches: ${all}\n\nUnsubscribe: ${unsubscribeUrl}\n`,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
-<p style="color:#555">${escapeHtml(count)} for <strong>${escapeHtml(what)}</strong></p>
-${lines
-  .map(
-    (l) => `<p style="margin:0 0 14px"><a href="${escapeHtml(l.url)}" style="font-weight:600;color:#111">${escapeHtml(l.title)}</a><br><span style="color:#555">${escapeHtml(l.details)}</span></p>`,
-  )
-  .join("\n")}
-<p><a href="${escapeHtml(all)}">See all matches on Unlisted</a></p>
-<p style="color:#888;font-size:12px">You asked for alerts for this search. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#888">Unsubscribe</a></p>
-</div>`,
+    email: createElement(AlertEmail, {
+      what,
+      jobs,
+      more,
+      origin,
+      allUrl: searchUrl(origin, sub.filters),
+      unsubscribeUrl: `${origin}/alerts/unsubscribe/${sub.token}`,
+    }),
     headers: {
-      // One-click unsubscribe in Gmail and other clients (RFC 8058).
+      // One-click unsubscribe in Gmail and other clients (RFC 8058). Gmail
+      // and Yahoo require it from bulk senders, and it beats being marked spam.
       "List-Unsubscribe": `<${origin}/api/alerts/unsubscribe/${sub.token}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },

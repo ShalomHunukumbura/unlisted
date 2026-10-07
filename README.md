@@ -285,9 +285,8 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
 - **Site:** Vercel, root directory `web`, with `DATABASE_URL` and
   `JOBSITE_READ_ONLY=1`. Read-only mode returns 404 for the admin page and its API,
   which run the CLI on the server and have no auth.
-- **Email alerts** go out through Gmail's SMTP (free, ~500 a day; the site caps
-  itself at 450). Vercel needs `SMTP_USER` (the Gmail address), `SMTP_PASS` (a
-  Google app password) and `ALERTS_SECRET`; GitHub needs the same
+- **Email alerts** and sign-in links go out through Resend or Gmail (see
+  [Email](#email)). Vercel needs `ALERTS_SECRET`, and GitHub needs the same
   `ALERTS_SECRET` as a secret. After each sync the workflow POSTs to
   `/api/alerts/send`, which runs the same filter code as the search page.
   Signing up only sends a confirmation email; nothing else is sent until it's
@@ -312,6 +311,44 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
 make deploy-migrate DEPLOY_URL="postgresql://..."    # once, then the workflow keeps it current
 make push-companies DEPLOY_URL="postgresql://..."
 ```
+
+## Email
+
+Templates are [React Email](https://react.email) components in
+`web/src/emails/` (alert, confirm, sign-in): typed, in the same codebase as the
+pages, rendered to email-safe HTML with inline styles plus a plain-text part.
+Preview them locally at `/api/dev/emails` (`?name=alert`, `&format=text`).
+
+`web/src/lib/mail.ts` sends through the first one that's set up:
+
+| Provider | Vercel settings | Free limit (site caps at) |
+|---|---|---|
+| Resend | `RESEND_API_KEY`, `MAIL_FROM` ("Unlisted <alerts@mail.yourdomain.com>") | 3,000 a month, 100 a day (95) |
+| Gmail SMTP | `SMTP_USER`, `SMTP_PASS` (a Google app password) | ~500 a day (450) |
+
+`MAIL_REPLY_TO` is optional, and `MAIL_DAILY_LIMIT` overrides the cap.
+Locally, with neither set, emails are printed to the terminal.
+
+**Resend needs a domain you own.** Without one it only delivers to your own
+address, so `*.vercel.app` won't do; any cheap domain works. In Resend, add a
+sending subdomain such as `mail.yourdomain.com` (a subdomain keeps the alert
+reputation apart from the main domain) and copy the records it shows into the
+domain's DNS:
+
+- **DKIM** (`TXT resend._domainkey.mail`): signs every email, so mail apps can
+  tell it really came from you. The biggest single factor.
+- **SPF** (`MX` and `TXT` on `send.mail`): says Resend may send for the domain.
+- **DMARC** (`TXT _dmarc`, add it yourself): `v=DMARC1; p=none; rua=mailto:you@yourdomain.com`.
+  Gmail and Yahoo require one from senders. Move to `p=quarantine` once
+  reports show only your own mail.
+
+What the code already does for the inbox: a plain-text part next to the HTML,
+one-click unsubscribe headers on alerts (RFC 8058, required by Gmail and Yahoo
+for bulk mail), a unique `X-Entity-Ref-ID` so alerts aren't folded into one
+thread, double opt-in (an address gets nothing until it confirms), a daily cap,
+and one consistent sender. Check a real email at
+[mail-tester.com](https://www.mail-tester.com) once DNS is in: it scores SPF,
+DKIM, DMARC and content.
 
 ## Commands
 

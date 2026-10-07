@@ -1,8 +1,12 @@
 import { randomBytes } from "node:crypto";
 
-import { CONFIRMS_PER_HOUR, DAILY_EMAILS, EMAIL_RE } from "./alerts";
+import { createElement } from "react";
+
+import SignInEmail from "@/emails/SignInEmail";
+
+import { CONFIRMS_PER_HOUR, EMAIL_RE } from "./alerts";
 import { query } from "./db";
-import { escapeHtml, sendMail } from "./mail";
+import { DAILY_EMAILS, sendMail } from "./mail";
 import { currentProfile, rememberProfile } from "./profile";
 
 /**
@@ -55,14 +59,7 @@ export async function requestSignIn(rawEmail: string, origin: string): Promise<S
   await sendMail({
     to: email,
     subject: "Your Unlisted sign-in link",
-    text:
-      `Open this link on the device where you want your "For you" feed:\n\n${url}\n\n` +
-      `It works once, for ${LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.\n`,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
-<p>Open this link on the device where you want your <strong>For you</strong> feed:</p>
-<p><a href="${escapeHtml(url)}" style="font-weight:600;color:#111">Open my Unlisted profile</a></p>
-<p style="color:#888;font-size:12px">It works once, for ${LINK_MINUTES} minutes. If you didn't ask for it, ignore this email.</p>
-</div>`,
+    email: createElement(SignInEmail, { link: url, minutes: LINK_MINUTES }),
   });
   return sent;
 }
