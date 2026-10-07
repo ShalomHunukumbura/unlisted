@@ -4,8 +4,7 @@ import { Suspense } from "react";
 
 import AlertSignup from "@/components/AlertSignup";
 import FilterBar from "@/components/FilterBar";
-import { Tag, payLabel, remoteLabel } from "@/components/Tags";
-import { expLabel } from "@/lib/experience";
+import JobRow from "@/components/JobRow";
 import { cleanFilters } from "@/lib/alerts";
 import { READ_ONLY } from "@/lib/mode";
 import {
@@ -22,14 +21,6 @@ import {
 import { ago } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "";
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days <= 0) return "today";
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
-}
 
 const n = (value: string | number) => Number(value).toLocaleString("en-US");
 
@@ -55,7 +46,7 @@ export async function generateMetadata(props: PageProps<'/'>): Promise<Metadata>
 /** Shown while the database is empty, e.g. during a full refill after maintenance. */
 function Refreshing() {
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-10 sm:pt-16">
+    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
       <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">Unlisted</h1>
       <section className="mt-10 max-w-xl rounded-xl border border-line bg-surface p-6 sm:p-8">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.06em] text-muted">
@@ -118,7 +109,7 @@ export default async function Home(props: PageProps<'/'>) {
   const stale = syncedAt ? isStale(syncedAt) : false;
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-10 sm:pt-16">
+    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">
@@ -172,57 +163,9 @@ export default async function Home(props: PageProps<'/'>) {
       <AlertSignup filters={cleanFilters(sp) as Record<string, string>} rss={`/feed${query ? `?${query}` : ""}`} />
 
       <ul className="mt-2 border-t border-line">
-        {jobs.map((job) => {
-          const remote = remoteLabel(job);
-          const exp = expLabel(job.exp_min_years, job.exp_max_years);
-          const pay = payLabel(job);
-          const more = (job.role_locations ?? 1) > 1
-            ? `+${job.role_locations! - 1} more ${job.role_locations === 2 ? "location" : "locations"}`
-            : (job.role_postings ?? 1) > 1
-              ? `${job.role_postings} openings`
-              : null;
-          return (
-            <li key={job.id} className="border-b border-line">
-              <Link
-                href={`/jobs/${job.id}`}
-                className="group -mx-3 flex gap-4 rounded-lg px-3 py-4 transition-colors duration-200 hover:bg-hover"
-              >
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-pretty text-[15px] font-medium leading-snug text-ink-strong">
-                    {job.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    <span className="text-ink">{job.company_name}</span>
-                    {job.location_raw && <> · {job.location_raw}</>}
-                    {more && <span className="text-ink"> · {more}</span>}
-                  </p>
-                  {(remote || job.remote_scope === "hybrid" || job.department || exp || pay) && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {pay && <Tag mono title="Base pay stated on the posting">{pay}</Tag>}
-                      {remote && <Tag tone={remote.tone} title={remote.title}>{remote.text}</Tag>}
-                      {job.remote_scope === "hybrid" && <Tag>Hybrid</Tag>}
-                      {exp && (
-                        <Tag
-                          mono
-                          title={job.exp_source === "title" ? "Guessed from the job title" : "Stated in the description"}
-                        >
-                          {job.exp_source === "title" ? `~${exp}` : exp}
-                        </Tag>
-                      )}
-                      {job.department && <Tag>{job.department}</Tag>}
-                    </div>
-                  )}
-                </div>
-                <time
-                  dateTime={job.posted_at ?? undefined}
-                  className="shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted"
-                >
-                  {timeAgo(job.posted_at)}
-                </time>
-              </Link>
-            </li>
-          );
-        })}
+        {jobs.map((job) => (
+          <JobRow key={job.id} job={job} />
+        ))}
       </ul>
 
       {jobs.length === 0 && (

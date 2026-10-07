@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector for the jobs.embedding column (Neon has it built in).
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: jobsite
           POSTGRES_PASSWORD: jobsite

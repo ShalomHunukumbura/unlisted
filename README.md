@@ -24,6 +24,12 @@ the employer's own apply page.
   written in the description ("$120,000 - $150,000 USD"), with a filter for it.
 - **Each role once.** A company posting the same role for twelve cities shows up
   as one row, "+11 more locations", instead of twelve.
+- **For you:** a second feed ranked for one person. Add the roles you want and
+  your skills, or upload a CV to fill them in, and every role is scored on how
+  well it fits, with the reason under each one. The CV is read in the browser
+  and never uploaded. Save roles, hide ones that aren't for you, get notified
+  about strong new matches, and open the same profile on another device with an
+  emailed link. No account.
 - **Follow a search** by email or RSS. "Email me new matches" saves the current
   filters; after confirming, you get one email after each hourly update that
   found something new. Every search also has a feed at `/feed?...`.
@@ -40,7 +46,7 @@ next to the employer's posted date.
 ## Quick start
 
 ```bash
-make up          # start postgres (host port 5433)
+make up          # start postgres + pgvector (host port 5433; builds db/docker the first time)
 make migrate     # apply db/migrations/*.sql
 make install     # python venv + web deps
 make discover    # probe db/seed/companies.txt -> companies table
@@ -168,6 +174,55 @@ the next sync rewrite every job with pay at once, more than the 512 MB database
 has room for. `jobsite backfill-pay` fills it in for jobs stored earlier, in
 batches with a `VACUUM` after each.
 
+## For you
+
+`/for-you` ranks every listed role for one person. Each role gets a score from
+four signals (`web/src/lib/match.ts`):
+
+| Signal | Points | From |
+|---|---|---|
+| Role | 3 | the title names a role they want ("Engineer" and "Developer" count as one) |
+| Skills | up to 2 | how many of their skills the posting mentions, full marks at 5 |
+| CV | up to 4 | how close the posting reads to their CV (embeddings) |
+| Fresh | up to 1 | halves every two days |
+
+A role needs 1.5 points from the first three to be shown, so the feed is what
+fits, not everything sorted. Preferences (where, country, pay) filter as on the
+home page; experience is softer: roles that don't state it stay in, a year over
+is fine, and early careers don't see senior titles. Each row says why it's
+there: the role and skills that matched, and "close to your CV".
+
+**The CV never leaves the browser.** pdf.js or mammoth pulls the text out,
+`web/src/lib/catalog.ts` finds the roles, skills (about 220 named ones, with
+aliases) and years of experience in it to prefill the form, and
+[Transformers.js](https://huggingface.co/docs/transformers.js) runs
+`all-MiniLM-L6-v2` on it (8-bit, 23 MB, downloaded once). Only the chips the
+person keeps and the 384 numbers are saved.
+
+**Jobs are embedded by the worker**: `jobsite embed` runs the same model through
+fastembed (ONNX Runtime, no PyTorch) on the title, twice, and the first ~1,000
+characters of the description, and stores a `halfvec(384)` with pgvector, about
+10 MB for a week of jobs. fastembed's output matches the browser's
+full-precision model to five decimals; the browser's 8-bit one is 0.994
+cosine-similar. There's no vector index: the feed filters first and compares a
+few thousand rows exactly. Calibrated on a backend engineer's CV and a nurse's:
+the median job scores 0.19 to 0.26, the closest 1% 0.39 to 0.48, so 0.3 is
+worth nothing and 0.6 full marks.
+
+**Two things made the query fast** (8 s to ~100 ms): skills and roles are looked
+up one at a time through the GIN indexes before joining (testing every row's
+`search_tsv` unpacks that large out-of-line column per skill per row, which the
+planner doesn't cost), and JIT is off for it (Postgres guessed the query was
+expensive and spent 2 s compiling it).
+
+**Profiles without accounts.** A profile is a row keyed by a random token in an
+`httpOnly` cookie. "Use on another device" emails a single-use, 30-minute link;
+opening it is a button press, so mail scanners can't use it up. "Not for me"
+hides a role (all its postings); saved roles keep a copy of the title and link,
+since jobs are deleted after a week. "Notify this device" on the feed sends a push
+notification after each sync when a new role scores 3 or more. Profiles unused
+for six months are deleted.
+
 ## Design decisions worth knowing
 
 **Only the past week.** Within a week or two most roles have hundreds of
@@ -246,6 +301,10 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
   `npx web-push generate-vapid-keys` (redeploy after setting them: the public
   key is built into the page). iPhones only get push once the site is on the
   home screen.
+- **For you:** migration 0012 enables pgvector (Neon has it). The workflow
+  installs `workers[embed]`, caches the model, and runs `jobsite embed` after
+  each sync (at most 15 minutes, so a refilled table is embedded over a couple
+  of runs). Sign-in links use the same Gmail settings as alerts.
 - **Companies** are managed locally. `make push-companies DEPLOY_URL=...` copies new
   ones to the deployed database (existing ones are left alone).
 
@@ -263,6 +322,7 @@ jobsite import-boards db/seed/ashby_boards.txt --ats ashby
 jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 7 days
 jobsite prune                                      # just the prune
 jobsite backfill-pay                               # one-off: pay for jobs stored before pay.py
+jobsite embed                                      # embeddings for "For you" (pip install -e "workers[embed]")
 jobsite stats
 python -m jobsite.scheduler                          # sync every 6h
 ```
@@ -270,7 +330,7 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 127 tests (connector fixtures under workers/tests/fixtures; the age
+make test    # 166 tests (connector fixtures under workers/tests/fixtures; the age
              # test uses the dev database and is skipped when it's not running)
 ```
 

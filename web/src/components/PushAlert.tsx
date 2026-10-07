@@ -18,11 +18,16 @@ async function registration() {
   return (await navigator.serviceWorker.getRegistration("/")) ?? navigator.serviceWorker.register("/sw.js", { scope: "/" });
 }
 
-async function call(action: "on" | "off" | "status", subscription: PushSubscription, filters: Record<string, string>) {
+async function call(
+  action: "on" | "off" | "status",
+  subscription: PushSubscription,
+  filters: Record<string, string>,
+  forYou: boolean,
+) {
   const res = await fetch("/api/push", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, subscription: subscription.toJSON(), filters }),
+    body: JSON.stringify({ action, subscription: subscription.toJSON(), filters, forYou }),
   });
   return (await res.json()) as { ok: boolean; message?: string; on?: boolean };
 }
@@ -32,9 +37,12 @@ async function call(action: "on" | "off" | "status", subscription: PushSubscript
  * notification after each hourly update with anything new. iPhones only allow
  * it once the site is added to the home screen, so they get that hint instead.
  */
-export default function PushAlert({ filters }: { filters: Record<string, string> }) {
+export default function PushAlert({ filters = {}, forYou = false }: { filters?: Record<string, string>; forYou?: boolean }) {
   const [state, setState] = useState<State>("loading");
-  const hasFilters = Object.keys(filters).length > 0;
+  // Subscribing can take seconds (the browser registers with its push service).
+  const [turning, setTurning] = useState<"on" | "off">("on");
+  // "For you" needs no filters: the profile is what's matched.
+  const hasFilters = forYou || Object.keys(filters).length > 0;
   const filtersKey = JSON.stringify(filters);
   // A message belongs to the search it was about; a new search hides it.
   const [note, setNote] = useState<{ search: string; text: string } | null>(null);
@@ -55,7 +63,7 @@ export default function PushAlert({ filters }: { filters: Record<string, string>
       try {
         const sub = await (await registration()).pushManager.getSubscription();
         if (!sub) return set("off");
-        const res = await call("status", sub, JSON.parse(filtersKey));
+        const res = await call("status", sub, JSON.parse(filtersKey), forYou);
         set(res.on ? "on" : "off");
       } catch {
         set("off");
@@ -64,7 +72,7 @@ export default function PushAlert({ filters }: { filters: Record<string, string>
     return () => {
       cancelled = true;
     };
-  }, [filtersKey, hasFilters]);
+  }, [filtersKey, hasFilters, forYou]);
 
   async function toggle() {
     if (!hasFilters) {
@@ -72,15 +80,16 @@ export default function PushAlert({ filters }: { filters: Record<string, string>
       return;
     }
     const wasOn = state === "on";
+    setTurning(wasOn ? "off" : "on");
     setState("busy");
     setMessage(null);
     try {
       const reg = await registration();
       let sub = await reg.pushManager.getSubscription();
       if (wasOn) {
-        if (sub) await call("off", sub, filters);
+        if (sub) await call("off", sub, filters, forYou);
         setState("off");
-        setMessage("Notifications off for this search.");
+        setMessage(forYou ? "Notifications off for new matches." : "Notifications off for this search.");
         return;
       }
       if ((await Notification.requestPermission()) !== "granted") {
@@ -88,13 +97,22 @@ export default function PushAlert({ filters }: { filters: Record<string, string>
         return;
       }
       sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(KEY) });
-      const res = await call("on", sub, filters);
+      const res = await call("on", sub, filters, forYou);
       setState(res.ok ? "on" : "off");
-      setMessage(res.ok ? "Done. You'll get a notification when new roles match this search." : res.message ?? null);
+      const done = forYou
+        ? "Done. You'll get a notification when a new role fits you well."
+        : "Done. You'll get a notification when new roles match this search.";
+      setMessage(res.ok ? done : res.message ?? null);
     } catch (error) {
       console.error(error);
       setState(wasOn ? "on" : "off");
-      setMessage("Couldn't change notifications. Please try again.");
+      // Chrome refuses push in private windows with an AbortError, on purpose
+      // with no way to check first.
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "This browser won't allow notifications here. Private windows don't support them."
+          : "Couldn't change notifications. Please try again.",
+      );
     }
   }
 
@@ -138,7 +156,11 @@ export default function PushAlert({ filters }: { filters: Record<string, string>
         className={`inline-flex items-center gap-1.5 transition-colors hover:text-ink-strong disabled:opacity-60 ${state === "on" ? "text-ink-strong" : ""}`}
       >
         {icon}
-        {state === "on" ? "Notifying this device" : "Notify this device"}
+        {state === "busy"
+          ? `Turning ${turning}…`
+          : state === "on"
+            ? "Notifying this device"
+            : "Notify this device"}
       </button>
       {message && (
         <p role="status" className="basis-full text-right text-xs text-ink">

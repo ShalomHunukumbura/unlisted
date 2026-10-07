@@ -1,6 +1,8 @@
 import webpush, { WebPushError } from "web-push";
 
 import { query } from "./db";
+import { STRONG_MIN, matchJobs } from "./match";
+import { profileById } from "./profile";
 import { ALERT_FILTER_KEYS, newMatches, type Filters } from "./queries";
 import { describeFilters, searchUrl } from "./alerts";
 
@@ -81,8 +83,55 @@ export async function hasPush(endpoint: string, filters: Filters): Promise<boole
   return rows.length > 0;
 }
 
-type Row = { id: string; endpoint: string; p256dh: string; auth: string; filters: Filters; checked_until: Date };
-type Match = Awaited<ReturnType<typeof newMatches>>[number];
+/**
+ * "New matches for you" on this device: one row with the profile and no
+ * filters. A device has one profile, so signing in to another moves it.
+ */
+export async function addProfilePush(sub: PushKeys, profileId: string): Promise<PushResult> {
+  await query(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, filters, profile_id) VALUES ($1, $2, $3, '{}', $4)
+     ON CONFLICT (endpoint, filters) DO UPDATE
+        SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, profile_id = EXCLUDED.profile_id,
+            checked_until = CASE WHEN push_subscriptions.profile_id = EXCLUDED.profile_id
+                                 THEN push_subscriptions.checked_until ELSE now() END`,
+    [sub.endpoint, sub.keys.p256dh, sub.keys.auth, profileId],
+  );
+  return { ok: true, message: "Notifications on for new matches." };
+}
+
+export async function removeProfilePush(endpoint: string, profileId: string): Promise<void> {
+  await query(`DELETE FROM push_subscriptions WHERE endpoint = $1 AND profile_id = $2`, [endpoint, profileId]);
+}
+
+export async function hasProfilePush(endpoint: string, profileId: string): Promise<boolean> {
+  const rows = await query(`SELECT 1 FROM push_subscriptions WHERE endpoint = $1 AND profile_id = $2`, [endpoint, profileId]);
+  return rows.length > 0;
+}
+
+type Row = {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  filters: Filters;
+  profile_id: string | null;
+  checked_until: Date;
+};
+type Match = Pick<Awaited<ReturnType<typeof newMatches>>[number], "id" | "title" | "company_name">;
+
+/** For a profile: "3 new roles for you", to the feed. */
+function forYouNotification(jobs: Match[], origin: string) {
+  const first = jobs[0];
+  return {
+    title: jobs.length === 1 ? "A new role for you" : `${jobs.length} new roles for you`,
+    body:
+      jobs.length === 1
+        ? `${first.title} at ${first.company_name}`
+        : `${first.title} at ${first.company_name}, and ${jobs.length - 1} more`,
+    url: jobs.length === 1 ? `${origin}/jobs/${first.id}` : `${origin}/for-you`,
+    tag: "for-you",
+  };
+}
 
 /** What the service worker shows. Push payloads are capped at about 4 KB. */
 function notification(filters: Filters, jobs: Match[], origin: string) {
@@ -114,7 +163,8 @@ export async function sendPushAlerts(origin: string, deadline: number) {
   const [{ now }] = await query<{ now: Date }>(`SELECT now()`);
   const until = now.toISOString();
   const subs = await query<Row>(
-    `SELECT id::text, endpoint, p256dh, auth, filters, checked_until FROM push_subscriptions ORDER BY checked_until`,
+    `SELECT id::text, endpoint, p256dh, auth, filters, profile_id::text, checked_until
+       FROM push_subscriptions ORDER BY checked_until`,
   );
   report.devices = subs.length;
   for (const sub of subs) {
@@ -122,12 +172,21 @@ export async function sendPushAlerts(origin: string, deadline: number) {
       report.deferred += 1;
       continue;
     }
-    const jobs = await newMatches(sub.filters, new Date(sub.checked_until).toISOString(), until);
+    const after = new Date(sub.checked_until).toISOString();
+    let jobs: Match[];
+    if (sub.profile_id) {
+      const profile = await profileById(sub.profile_id);
+      // Only strong matches: a notification is an interruption.
+      jobs = profile ? (await matchJobs(profile, { window: { after, until }, minScore: STRONG_MIN })).jobs : [];
+    } else {
+      jobs = await newMatches(sub.filters, after, until);
+    }
     if (jobs.length > 0) {
+      const payload = sub.profile_id ? forYouNotification(jobs, origin) : notification(sub.filters, jobs, origin);
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify(notification(sub.filters, jobs, origin)),
+          JSON.stringify(payload),
           { TTL: 24 * 3600, urgency: "normal", timeout: 10_000 },
         );
         report.pushed += 1;

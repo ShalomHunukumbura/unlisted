@@ -13,6 +13,10 @@ dependencies = [
     "pydantic-settings>=2.2",
 ]
 
+[project.optional-dependencies]
+# `jobsite embed`: the "For you" feed's job embeddings (ONNX, no PyTorch).
+embed = ["fastembed>=0.7"]
+
 [project.scripts]
 jobsite = "jobsite.cli:app"
 

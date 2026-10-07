@@ -186,6 +186,17 @@ def backfill_pay_cmd() -> None:
     typer.echo(f"done: pay found for {changed} jobs")
 
 
+@app.command("embed")
+def embed_cmd(
+    max_seconds: float = typer.Option(900, help="Stop after this long; the rest waits for the next run"),
+) -> None:
+    """Embed open jobs that don't have one yet, for the "For you" feed (needs the embed extra)."""
+    _setup_logging()
+    from . import embed
+
+    typer.echo(f"embedded {embed.embed_new(max_seconds=max_seconds)} jobs")
+
+
 @app.command("stats")
 def stats() -> None:
     """Quick health check of what's in the database."""

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
+import SiteNav from "@/components/SiteNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to jobs
         </a>
+        <SiteNav />
         {children}
         <footer className="mt-auto border-t border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sendAlerts } from "@/lib/alerts";
+import { cleanUpProfiles } from "@/lib/profile";
 import { sendPushAlerts } from "@/lib/push";
 import { siteOrigin } from "@/lib/site";
 
@@ -18,5 +19,6 @@ export async function POST(request: Request) {
   // Push first: it's quick and has no daily cap; email gets the rest of the time.
   const push = await sendPushAlerts(origin, started + 20_000);
   const email = await sendAlerts(origin, 45_000 - (Date.now() - started));
+  await cleanUpProfiles();
   return NextResponse.json({ ...email, push });
 }

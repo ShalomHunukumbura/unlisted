@@ -12,7 +12,7 @@ migrate: up
 	./db/migrate.sh
 
 install:
-	cd workers && python3 -m venv .venv && ./.venv/bin/pip install -q -e . pytest
+	cd workers && python3 -m venv .venv && ./.venv/bin/pip install -q -e ".[embed]" pytest
 	cd web && npm install
 
 discover:

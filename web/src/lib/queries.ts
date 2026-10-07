@@ -69,7 +69,7 @@ export const pageCount = (pages?: string) => Math.min(MAX_PAGES, Math.max(1, Mat
  * deletes them, so this just keeps pages right between syncs.
  */
 export const MAX_AGE_DAYS = 7;
-const FRESH = `COALESCE(j.posted_at, j.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'`;
+export const FRESH = `COALESCE(j.posted_at, j.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'`;
 
 /** Filter buckets -> [minYears, maxYears]; null max = open ended. */
 export const EXP_BUCKETS: Record<string, [number, number | null]> = {
@@ -82,7 +82,7 @@ export const EXP_BUCKETS: Record<string, [number, number | null]> = {
 export const PAY_FLOORS = ["100", "150", "200"];
 
 /** Build the shared WHERE clause. Params are appended to `params`. */
-function buildWhere(f: Filters, params: unknown[]): string {
+export function buildWhere(f: Filters, params: unknown[]): string {
   const where: string[] = [FRESH];
 
   if (!f.includeClosed) where.push("j.closed_at IS NULL");
@@ -179,7 +179,7 @@ function buildWhere(f: Filters, params: unknown[]): string {
  * the table is large. Served directly by jobs_open_posted_idx.
  */
 /** Timestamps as ISO strings: what <time dateTime> wants, and what survives the cache. */
-function iso(value: unknown): string | null {
+export function iso(value: unknown): string | null {
   return value instanceof Date ? value.toISOString() : (value as string | null);
 }
 

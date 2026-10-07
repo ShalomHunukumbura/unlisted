@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # postgres:16-alpine plus pgvector, see db/docker/Dockerfile.
+    build: db/docker
+    image: jobsite-postgres
     environment:
       POSTGRES_USER: jobsite
       POSTGRES_PASSWORD: jobsite

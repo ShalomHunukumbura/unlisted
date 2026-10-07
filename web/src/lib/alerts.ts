@@ -8,23 +8,23 @@ import { ALERT_FILTER_KEYS, newMatches, type Filters } from "./queries";
 
 // Gmail's limit is about 500 emails a day; stop short of it so the account
 // is never suspended. Alerts that don't fit wait for the next run.
-const DAILY_EMAILS = 450;
+export const DAILY_EMAILS = 450;
 // Signup emails: a form anyone can submit must not become a way to spam.
-const CONFIRMS_PER_HOUR = 40;
+export const CONFIRMS_PER_HOUR = 40;
 const RESEND_CONFIRM_AFTER_MIN = 10;
 const SUBSCRIPTIONS_PER_EMAIL = 10;
 
-const REMOTE: Record<string, string> = {
+export const REMOTE: Record<string, string> = {
   apac: "Remote, open to Sri Lanka",
   anywhere: "Remote from anywhere",
   "1": "Remote",
   hybrid: "Hybrid",
   onsite: "On-site",
 };
-const EXP: Record<string, string> = {
+export const EXP: Record<string, string> = {
   "0-1": "0–1 yrs", "1-2": "1–2 yrs", "3-5": "3–5 yrs", "5+": "5+ yrs", unknown: "experience not stated",
 };
-const PAY: Record<string, string> = {
+export const PAY: Record<string, string> = {
   listed: "pay listed", "100": "$100K+", "150": "$150K+", "200": "$200K+",
 };
 
@@ -73,7 +73,7 @@ export function searchUrl(origin: string, f: Filters): string {
   return `${origin}/${qs ? `?${qs}` : ""}`;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export type SubscribeResult = { ok: boolean; message: string };
 

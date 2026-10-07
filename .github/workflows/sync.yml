@@ -44,7 +44,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install -e workers
+      - run: pip install -e "workers[embed]"
+      # The embedding model (~90 MB), so it isn't downloaded every hour.
+      - uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.fastembed
+          key: fastembed-all-MiniLM-L6-v2
       # Deleting jobs frees space only for more jobs: Neon still counts it, so a
       # new table can't be created at the limit. TRUNCATE hands it back.
       - name: Reset jobs
@@ -58,6 +63,15 @@ jobs:
         working-directory: workers
       - name: Sync the boards that are due
         run: jobsite sync --due --workers 6
+        working-directory: workers
+      # For the "For you" feed. Before the alerts, so notifications for a
+      # profile can use the new jobs' embeddings. A big backlog (after a reset)
+      # is spread over a few runs.
+      - name: Embed new jobs
+        if: ${{ !cancelled() }}
+        env:
+          FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed
+        run: jobsite embed --max-seconds 900
         working-directory: workers
       # The site sends them (the filters live in the web code); this just says
       # the new jobs are in. Skipped until the ALERTS_SECRET secret exists.
