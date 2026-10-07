@@ -21,7 +21,7 @@ export default function Image() {
           color: "#111111",
         }}
       >
-        <div style={{ display: "flex", fontSize: 30, color: "#787774" }}>unlisted-tau.vercel.app</div>
+        <div style={{ display: "flex", fontSize: 30, color: "#787774" }}>findunlisted.link</div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 132, letterSpacing: "-0.04em", lineHeight: 1 }}>Unlisted</div>
           <div style={{ fontSize: 44, marginTop: 24, color: "#2f3437", maxWidth: 900 }}>

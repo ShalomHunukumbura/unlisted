@@ -3,7 +3,7 @@
 **Fresh roles straight from 7,700+ company career pages, in one search, including
 the ones that never reach job boards.**
 
-**Live: [unlisted-tau.vercel.app](https://unlisted-tau.vercel.app)**
+**Live: [findunlisted.link](https://findunlisted.link)**
 
 Every company's careers page is
 hosted by an applicant tracking system (Greenhouse, Ashby, Lever), and that's where

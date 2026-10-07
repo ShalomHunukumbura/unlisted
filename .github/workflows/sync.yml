@@ -79,7 +79,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           ALERTS_SECRET: ${{ secrets.ALERTS_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://unlisted-tau.vercel.app' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://findunlisted.link' }}
         run: |
           if [ -z "$ALERTS_SECRET" ]; then echo "ALERTS_SECRET not set, skipping"; exit 0; fi
           curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $ALERTS_SECRET" \
