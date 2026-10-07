@@ -49,10 +49,19 @@ export type Filters = {
   exp?: string;         // "0-1" | "1-2" | "3-5" | "5+" | "unknown"
   pay?: string;         // "listed" | "100" | "150" | "200" (thousand USD a year)
   cursor?: string;      // "<posted_at ISO>|<id>"
+  pages?: string;       // how many pages to show at once ("Show older roles")
   includeClosed?: boolean;
 };
 
 const PAGE_SIZE = 50;
+
+/**
+ * "Show older roles" asks for one more page on top of the ones on screen
+ * (?pages=2, 3, ...) rather than replacing them, so the list grows in place
+ * and the reader keeps their spot. Past MAX_PAGES it switches to the cursor.
+ */
+export const MAX_PAGES = 20;
+export const pageCount = (pages?: string) => Math.min(MAX_PAGES, Math.max(1, Math.floor(Number(pages)) || 1));
 
 /**
  * Only jobs from the past week are listed: older roles have usually had
@@ -217,7 +226,8 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
     sql += ` AND (j.posted_at, j.id) < ($${tsIdx}::timestamptz, $${params.length}::bigint)`;
   }
 
-  params.push(PAGE_SIZE + 1);
+  const size = PAGE_SIZE * pageCount(f.pages);
+  params.push(size + 1);
   sql += ` ORDER BY j.posted_at DESC NULLS LAST, j.id DESC LIMIT $${params.length}`;
 
   const rows = (await query<Job>(sql, params)).map((j) => ({
@@ -225,8 +235,8 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
     posted_at: iso(j.posted_at),
     closed_at: iso(j.closed_at),
   }));
-  const hasMore = rows.length > PAGE_SIZE;
-  const jobs = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  const hasMore = rows.length > size;
+  const jobs = hasMore ? rows.slice(0, size) : rows;
   const last = jobs.at(-1);
   const nextCursor =
     hasMore && last?.posted_at

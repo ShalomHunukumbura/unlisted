@@ -145,11 +145,12 @@ export default function FilterBar({ countries, departments }: Props) {
     if (value) next.set(key, value);
     else next.delete(key);
     next.delete("cursor"); // any filter change resets pagination
+    next.delete("pages");
     startTransition(() => router.replace(`/?${next.toString()}`, { scroll: false }));
   }
 
   const value = (key: string) => params.get(key) ?? "";
-  const active = Array.from(params.keys()).some((k) => k !== "cursor");
+  const active = Array.from(params.keys()).some((k) => k !== "cursor" && k !== "pages");
   const folded = ["country", "exp", "pay", "department", "since", "company"].filter((k) => params.get(k)).length;
 
   return (

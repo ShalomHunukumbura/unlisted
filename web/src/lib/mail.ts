@@ -5,7 +5,9 @@ import nodemailer from "nodemailer";
  * day, no domain needed. SMTP_USER is the Gmail address, SMTP_PASS a Google
  * app password (needs 2-step verification on), never the account password.
  *
- * Without them (local development) emails are printed instead of sent.
+ * Without them, local development prints emails instead of sending them; a
+ * deployment refuses, so a missing setting shows up as an error, not as
+ * emails that silently never arrive.
  */
 const user = process.env.SMTP_USER;
 const pass = process.env.SMTP_PASS;
@@ -26,6 +28,7 @@ export type Mail = {
 
 export async function sendMail(mail: Mail): Promise<void> {
   if (!transport) {
+    if (process.env.VERCEL) throw new Error("SMTP_USER / SMTP_PASS are not set on this deployment");
     console.log(`[mail] to=${mail.to} subject=${JSON.stringify(mail.subject)}\n${mail.text}`);
     return;
   }

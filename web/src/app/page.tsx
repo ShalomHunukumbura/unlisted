@@ -8,7 +8,17 @@ import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
 import { cleanFilters } from "@/lib/alerts";
 import { READ_ONLY } from "@/lib/mode";
-import { MAX_AGE_DAYS, facets, fresh, hasOpenJobs, lastSync, listJobs, type Filters } from "@/lib/queries";
+import {
+  MAX_AGE_DAYS,
+  MAX_PAGES,
+  facets,
+  fresh,
+  hasOpenJobs,
+  lastSync,
+  listJobs,
+  pageCount,
+  type Filters,
+} from "@/lib/queries";
 import { ago } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +37,12 @@ const n = (value: string | number) => Number(value).toLocaleString("en-US");
 const STALE_AFTER_MS = 3 * 3_600_000;
 const isStale = (iso: string) => Date.now() - new Date(iso).getTime() > STALE_AFTER_MS;
 
-/** The current filters as a query string, without the page cursor. */
+/** The current filters as a query string, without paging. */
 function filterQuery(sp: Record<string, string | string[] | undefined>): string {
   return new URLSearchParams(
-    Object.entries(sp).flatMap(([k, v]) => (v && k !== "cursor" ? [[k, String(v)]] : [])) as [string, string][],
+    Object.entries(sp).flatMap(([k, v]) =>
+      v && k !== "cursor" && k !== "pages" ? [[k, String(v)]] : [],
+    ) as [string, string][],
   ).toString();
 }
 
@@ -81,6 +93,7 @@ export default async function Home(props: PageProps<'/'>) {
     exp: sp.exp as string,
     pay: sp.pay as string,
     cursor: sp.cursor as string,
+    pages: sp.pages as string,
   };
 
   if (!(await hasOpenJobs())) return <Refreshing />;
@@ -92,8 +105,14 @@ export default async function Home(props: PageProps<'/'>) {
   if (jobs.length === 0 && !f.cursor) ({ jobs, nextCursor } = await fresh.listJobs(f));
 
   const query = filterQuery(sp);
+  // Grow the list in place while that's cheap; after MAX_PAGES, page by cursor.
+  const pages = pageCount(f.pages);
+  const growInPlace = !f.cursor && pages < MAX_PAGES;
   const nextParams = new URLSearchParams(query);
-  if (nextCursor) nextParams.set("cursor", nextCursor);
+  if (nextCursor) {
+    if (growInPlace) nextParams.set("pages", String(pages + 1));
+    else nextParams.set("cursor", nextCursor);
+  }
   const filtered = query !== "";
   const syncedAt = await synced;
   const stale = syncedAt ? isStale(syncedAt) : false;
@@ -227,6 +246,7 @@ export default async function Home(props: PageProps<'/'>) {
         <div className="mt-10 flex justify-center">
           <Link
             href={`/?${nextParams.toString()}`}
+            scroll={!growInPlace}
             className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
           >
             Show older roles
