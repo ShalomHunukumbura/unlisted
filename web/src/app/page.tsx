@@ -7,6 +7,7 @@ import FilterBar from "@/components/FilterBar";
 import JobRow from "@/components/JobRow";
 import { cleanFilters } from "@/lib/alerts";
 import { READ_ONLY } from "@/lib/mode";
+import { SEARCH_PARAMS, SITE_URL, jsonLd } from "@/lib/seo";
 import {
   MAX_AGE_DAYS,
   MAX_PAGES,
@@ -39,8 +40,15 @@ function filterQuery(sp: Record<string, string | string[] | undefined>): string 
 
 // Lets feed readers find the RSS feed for whatever search is on screen.
 export async function generateMetadata(props: PageProps<'/'>): Promise<Metadata> {
-  const query = filterQuery(await props.searchParams);
-  return { alternates: { types: { "application/rss+xml": `/feed${query ? `?${query}` : ""}` } } };
+  const sp = await props.searchParams;
+  const query = filterQuery(sp);
+  // Each filter combination is its own URL, and they're near-duplicates: keep
+  // them out of the index (links on them still count), and point to "/".
+  const filtered = SEARCH_PARAMS.some((k) => sp[k]);
+  return {
+    alternates: { canonical: "/", types: { "application/rss+xml": `/feed${query ? `?${query}` : ""}` } },
+    ...(filtered && { robots: { index: false, follow: true } }),
+  };
 }
 
 /** Shown while the database is empty, e.g. during a full refill after maintenance. */
@@ -110,6 +118,24 @@ export default async function Home(props: PageProps<'/'>) {
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+      {/* The site's name in Google results is "Unlisted", not the domain. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Unlisted",
+            alternateName: ["findunlisted", "Find Unlisted"],
+            url: `${SITE_URL}/`,
+            potentialAction: {
+              "@type": "SearchAction",
+              target: `${SITE_URL}/?q={search_term_string}`,
+              "query-input": "required name=search_term_string",
+            },
+          }),
+        }}
+      />
       <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">

@@ -19,6 +19,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "For you",
   description: "Roles from company career pages, ranked by your roles, skills and CV.",
+  // Personal: each visitor sees their own feed.
+  robots: { index: false },
 };
 
 const MAX_PAGES = 10;

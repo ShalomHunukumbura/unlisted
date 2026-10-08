@@ -31,6 +31,8 @@ export type Job = {
   description_html?: string | null;
   first_seen_at?: string | null;     // when Unlisted first saw it
   first_synced_at?: string | null;   // when Unlisted started watching its board
+  employment_type?: string | null;   // job page only, as the ATS says it ("FullTime")
+  company_slug?: string;             // /companies/<slug>
   board_checked_before?: string | null; // last check of the board before the job appeared
   // List rows only: the same role (company + title) posted more than once,
   // e.g. once per city. The list shows the newest posting for the whole group.
@@ -44,6 +46,7 @@ export type Filters = {
   country?: string;
   region?: string;
   company?: string;
+  companySlug?: string; // the /companies/<slug> pages (one slug can be two boards)
   department?: string;
   since?: string;       // days
   exp?: string;         // "0-1" | "1-2" | "3-5" | "5+" | "unknown"
@@ -127,6 +130,10 @@ export function buildWhere(f: Filters, params: unknown[]): string {
   if (f.region) {
     params.push(f.region);
     where.push(`j.region = $${params.length}`);
+  }
+  if (f.companySlug) {
+    params.push(f.companySlug);
+    where.push(`c.slug = $${params.length}`);
   }
   if (f.company) {
     params.push(f.company);
@@ -248,10 +255,29 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
 
 const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v2"], { revalidate: LIST_TTL });
 
+/** How many roles (company + title, as the list shows them) match: the landing pages' intro. */
+export const countRoles = unstable_cache(
+  async (f: Filters) => {
+    const params: unknown[] = [];
+    const where = buildWhere(f, params);
+    const [{ n }] = await query<{ n: number }>(
+      `SELECT count(DISTINCT (j.company_id, lower(j.title)))::int AS n
+         FROM jobs j JOIN companies c ON c.id = j.company_id ${where}`,
+      params,
+    );
+    return n;
+  },
+  ["count-roles-v1"],
+  { revalidate: LIST_TTL },
+);
+
 /** Text searches aren't cached: endless one-off combinations would crowd out the rest. */
 export function listJobs(f: Filters) {
   return f.q ? listJobsUncached(f) : listJobsCached(f);
 }
+
+/** For a fixed set of searches (the landing pages), text searches included. */
+export const listJobsAlwaysCached = listJobsCached;
 
 /** The filters an alert can save: the home page's, minus paging and "posted within". */
 export const ALERT_FILTER_KEYS = ["q", "remote", "country", "company", "department", "exp", "pay"] as const;
@@ -299,7 +325,8 @@ export const getJob = cache(async function getJob(id: string): Promise<Job | nul
             j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
             j.exp_min_years, j.exp_max_years, j.exp_source,
             j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
-            j.description_html, j.first_seen_at, c.first_synced_at, j.board_checked_before
+            j.description_html, j.first_seen_at, c.first_synced_at, j.board_checked_before,
+            j.employment_type, c.slug AS company_slug
        FROM jobs j JOIN companies c ON c.id = j.company_id
       WHERE j.id = $1`,
     [id],

@@ -6,6 +6,7 @@ import LiveCheck from "@/components/LiveCheck";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
 import { getJob, sameRole } from "@/lib/queries";
+import { countryLanding, jobPostingData, jsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,31 @@ const ATS_LABEL: Record<string, string> = {
 
 export async function generateMetadata(props: PageProps<'/jobs/[id]'>): Promise<Metadata> {
   const job = await getJob((await props.params).id);
-  return job ? { title: `${job.title} at ${job.company_name}` } : {};
+  if (!job) return {};
+  // "Linear · Remote, anywhere · $160K–$200K · Posted 3 Oct 2026. Apply on the
+  // company's own careers page." Unique per job, which is what search results show.
+  // Remote: where from ("Remote · anywhere"), which says more than the
+  // location line, often just "Remote" again.
+  const where = remoteLabel(job)?.text ?? [job.location_raw, job.remote_scope === "hybrid" && "Hybrid"].filter(Boolean).join(", ");
+  const posted = job.posted_at ?? job.first_seen_at;
+  const description = [
+    job.company_name,
+    where,
+    payLabel(job),
+    expLabel(job.exp_min_years, job.exp_max_years),
+    posted && `Posted ${shortDate(posted)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const title = `${job.title} at ${job.company_name}`;
+  return {
+    title,
+    description: `${description}. Apply on the employer's own careers page.`,
+    alternates: { canonical: `/jobs/${job.id}` },
+    // A closed role stays reachable from old links but leaves search results.
+    ...(job.closed_at && { robots: { index: false } }),
+    openGraph: { title, description, type: "website" },
+  };
 }
 
 const DAY = 86_400_000;
@@ -84,9 +109,11 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
   const exp = expLabel(job.exp_min_years, job.exp_max_years);
   const ats = ATS_LABEL[job.ats] ?? job.ats;
   const pay = payLabel(job);
+  const posting = jobPostingData(job);
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-3xl px-4 pb-16 pt-8 sm:pt-12">
+      {posting && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(posting) }} />}
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-ink-strong"
@@ -96,7 +123,17 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
 
       <header className="mt-6">
         <p className="text-sm text-ink">
-          {job.company_name}
+          {job.company_slug ? (
+            <Link
+              href={`/companies/${job.company_slug}`}
+              className="underline decoration-line underline-offset-4 transition-colors hover:decoration-current"
+              title={`Every open role at ${job.company_name}`}
+            >
+              {job.company_name}
+            </Link>
+          ) : (
+            job.company_name
+          )}
           {job.department && <span className="text-muted"> · {job.department}</span>}
         </p>
         <h1 className="mt-1 text-balance font-serif text-4xl leading-[1.08] tracking-[-0.02em] text-ink-strong sm:text-5xl">
@@ -206,6 +243,25 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
           No description stored. Open the original posting to read it.
         </p>
       )}
+
+      {/* More like this: the pages search engines (and people) move on to. */}
+      <nav aria-label="More roles" className="mt-14 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-6 text-sm">
+        {job.company_slug && (
+          <Link href={`/companies/${job.company_slug}`} className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
+            All roles at {job.company_name}
+          </Link>
+        )}
+        {job.country && (
+          <Link href={countryLanding(job.country).path} className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
+            {countryLanding(job.country).title}
+          </Link>
+        )}
+        {job.remote && (
+          <Link href="/remote" className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
+            Remote jobs
+          </Link>
+        )}
+      </nav>
     </main>
   );
 }

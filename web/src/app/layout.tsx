@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 import SiteNav from "@/components/SiteNav";
+import { SITE_URL } from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,11 +29,7 @@ const description =
 
 export const metadata: Metadata = {
   // Absolute URLs for the social preview image; Vercel sets this variable.
-  metadataBase: new URL(
-    process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000",
-  ),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Unlisted · jobs straight from company career pages",
     template: "%s · Unlisted",
@@ -76,6 +74,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Pulled hourly from public Greenhouse, Ashby and Lever job boards. Every listing
               links to the employer&apos;s own posting; nothing is applied through this site.
             </p>
+            <nav aria-label="Browse" className="flex flex-wrap gap-x-4 gap-y-1.5 sm:max-w-xs sm:justify-end">
+              {[
+                { href: "/remote", label: "Remote" },
+                { href: "/remote/anywhere", label: "Remote, anywhere" },
+                { href: "/remote/sri-lanka", label: "Remote, Sri Lanka" },
+                { href: "/roles", label: "By role" },
+                { href: "/locations", label: "By country" },
+                { href: "/companies", label: "Companies" },
+              ].map((l) => (
+                <Link key={l.href} href={l.href} className="transition-colors hover:text-ink-strong">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
           </div>
         </footer>
         <Analytics />

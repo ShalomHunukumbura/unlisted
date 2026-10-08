@@ -312,6 +312,32 @@ make deploy-migrate DEPLOY_URL="postgresql://..."    # once, then the workflow k
 make push-companies DEPLOY_URL="postgresql://..."
 ```
 
+## Search engines
+
+- **Google for Jobs.** Each job page carries schema.org `JobPosting` data
+  (`web/src/lib/seo.ts`): title, the full description, dates, company, pay,
+  employment type, experience. Google requires a country, so it's only added
+  where one is known and true: on-site and hybrid roles (`jobLocation`) and
+  remote roles open to one country (`TELECOMMUTE` plus
+  `applicantLocationRequirements`). "Remote from anywhere" or "in EMEA" get no
+  markup; the page is still indexed. `validThrough` is when the role leaves
+  Unlisted, and the page 404s from then on, as Google asks of expired jobs.
+- **Landing pages** for what people search: `/remote`, `/remote/anywhere`,
+  `/remote/sri-lanka`, `/roles/<role>` (30, from `ROLE_PAGES`),
+  `/locations/<country>`, `/companies/<slug>` (from migration 0013's
+  `companies.slug`) and an A to Z `/companies`. Each has its own title,
+  description, intro with live counts, the newest roles, and links to related
+  pages. Pages with nothing this week (or a country with under 5 roles) say
+  `noindex`.
+- **What stays out:** filtered searches (`/?q=…`, thousands of near-duplicates)
+  are `noindex, follow` with `/` as canonical; `/for-you`, alert links, the API
+  and admin are disallowed in `robots.txt`.
+- **`/sitemap.xml`** lists every landing page, company and open role (~10,000
+  URLs), rebuilt from hourly-cached queries, so a role leaves it when it leaves
+  the site.
+- **Site name:** the home page's `WebSite` data names it "Unlisted" (with
+  "findunlisted" as an alternate), so results show the name, not the domain.
+
 ## Email
 
 Templates are [React Email](https://react.email) components in
