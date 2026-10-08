@@ -338,6 +338,27 @@ make push-companies DEPLOY_URL="postgresql://..."
 - **Site name:** the home page's `WebSite` data names it "Unlisted" (with
   "findunlisted" as an alternate), so results show the name, not the domain.
 
+## Blog
+
+`/blog`: guides written as Markdown in `web/content/blog/` (how to write one:
+`web/content/README.md`), and a **weekly report** that writes itself.
+
+- **The report.** After every sync, `/api/alerts/send` also saves the current
+  week's numbers into `weekly_reports` (migration 0014): roles posted, remote
+  share, roles open to Sri Lanka, roles per day, who posted most, top titles
+  and skills, pay ranges by title, top countries. Jobs are deleted a week after
+  they're posted, so this is the only way to keep a week's numbers; a finished
+  week is never rewritten. On Monday the week appears as a post, with optional
+  words from `web/content/reports/<monday>.md`.
+- **Charts** are plain HTML in one clay hue (`--chart`, its own so it never
+  reads as a remote tag), checked with a palette validator in light and dark;
+  single series, so values are written beside the bars and there's no legend.
+- **Banners** are drawn per post (`/blog/<slug>/banner`, `next/og`, fonts in
+  `web/src/assets/fonts`): a colour per category, the title in Instrument
+  Serif, and the post's chips as the site's tags, or, on reports, that week's
+  roles per day. The same image is the share preview.
+- `BlogPosting` data, `/blog/rss.xml`, and every post in the sitemap.
+
 ## Email
 
 Templates are [React Email](https://react.email) components in

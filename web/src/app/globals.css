@@ -22,6 +22,11 @@
   --yellow-ink: #956400;
   --red-bg: #fdebec;
   --red-ink: #9f2f2d;
+
+  /* Charts (blog reports): one clay hue, its own so it never reads as a
+     remote tag. Checked with the dataviz validator against the surface. */
+  --chart: #b4663f;
+  --chart-soft: #f1ddd2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +47,9 @@
     --yellow-ink: #dcb664;
     --red-bg: #361d1d;
     --red-ink: #e9a19f;
+
+    --chart: #c97f57;
+    --chart-soft: #3a2a22;
   }
 }
 
@@ -61,6 +69,8 @@
   --color-yellow-ink: var(--yellow-ink);
   --color-red-bg: var(--red-bg);
   --color-red-ink: var(--red-ink);
+  --color-chart: var(--chart);
+  --color-chart-soft: var(--chart-soft);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -104,4 +114,46 @@ body {
   html {
     scroll-behavior: smooth;
   }
+}
+
+/* Blog posts: the same calm tokens, with room to read. */
+.prose-blog {
+  --tw-prose-body: var(--ink);
+  --tw-prose-headings: var(--ink-strong);
+  --tw-prose-bold: var(--ink-strong);
+  --tw-prose-links: var(--ink-strong);
+  --tw-prose-bullets: var(--chart);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-hr: var(--line);
+  --tw-prose-quotes: var(--ink-strong);
+  --tw-prose-quote-borders: var(--chart);
+  --tw-prose-code: var(--ink-strong);
+  --tw-prose-th-borders: var(--line);
+  --tw-prose-td-borders: var(--line);
+}
+.prose-blog h2 {
+  font-family: var(--font-instrument-serif);
+  font-weight: 400;
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  scroll-margin-top: 1.5rem;
+}
+.prose-blog a {
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.2s;
+}
+.prose-blog a:hover {
+  text-decoration-color: currentColor;
+}
+.prose-blog code {
+  font-weight: 400;
+  background: var(--hover);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.prose-blog code::before,
+.prose-blog code::after {
+  content: none;
 }

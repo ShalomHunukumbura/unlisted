@@ -82,6 +82,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 { href: "/roles", label: "By role" },
                 { href: "/locations", label: "By country" },
                 { href: "/companies", label: "Companies" },
+                { href: "/blog", label: "Blog" },
               ].map((l) => (
                 <Link key={l.href} href={l.href} className="transition-colors hover:text-ink-strong">
                   {l.label}

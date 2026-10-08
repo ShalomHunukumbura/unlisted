@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { allPosts } from "@/lib/blog";
 import {
   MIN_ROLES,
   REMOTE_PAGES,
@@ -21,7 +22,12 @@ export const dynamic = "force-dynamic";
  * a sitemap file may hold.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [jobs, companies, countries] = await Promise.all([sitemapJobs(), companiesWithJobs(), countriesWithJobs()]);
+  const [jobs, companies, countries, posts] = await Promise.all([
+    sitemapJobs(),
+    companiesWithJobs(),
+    countriesWithJobs(),
+    allPosts(),
+  ]);
   const now = new Date();
   const page = (path: string, priority: number, lastModified: Date = now): MetadataRoute.Sitemap[number] => ({
     url: `${SITE_URL}${path}`,
@@ -32,6 +38,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     page("/", 1),
     ...REMOTE_PAGES.map((l) => page(l.path, 0.9)),
+    page("/blog", 0.8),
+    ...posts.map((p) => page(`/blog/${p.slug}`, 0.7, new Date(`${p.date}T00:00:00Z`))),
     page("/roles", 0.6),
     ...ROLE_LANDINGS.map((l) => page(l.path, 0.8)),
     page("/locations", 0.6),

@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Read from disk at request time, so Vercel has to be told to ship them:
+  // blog posts (Markdown) and the fonts the blog banners are drawn with.
+  outputFileTracingIncludes: {
+    "/blog/**": ["./content/**/*", "./src/assets/fonts/**/*"],
+    "/sitemap.xml": ["./content/**/*"],
+  },
   async headers() {
     return [
       {
