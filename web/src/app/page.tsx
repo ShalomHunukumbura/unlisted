@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { Fragment, Suspense } from "react";
 
 import AlertSignup from "@/components/AlertSignup";
 import FilterBar from "@/components/FilterBar";
+import HomeFeatures from "@/components/HomeFeatures";
+import { PRIMARY } from "@/components/ui";
 import JobRow from "@/components/JobRow";
-import { cleanFilters } from "@/lib/alerts";
+import { cleanFilters, describeFilters } from "@/lib/alerts";
+import { COOKIE as PROFILE_COOKIE } from "@/lib/profile";
 import { READ_ONLY } from "@/lib/mode";
 import { SEARCH_PARAMS, SITE_URL, jsonLd } from "@/lib/seo";
 import {
@@ -49,6 +53,37 @@ export async function generateMetadata(props: PageProps<'/'>): Promise<Metadata>
     alternates: { canonical: "/", types: { "application/rss+xml": `/feed${query ? `?${query}` : ""}` } },
     ...(filtered && { robots: { index: false, follow: true } }),
   };
+}
+
+/** Live status: a dot that's green while the hourly sync is keeping up. */
+function Status({ syncedAt, open, remote }: { syncedAt: string | null; open: string; remote: string }) {
+  const stale = syncedAt ? isStale(syncedAt) : false;
+  return (
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted">
+      {syncedAt && (
+        <span
+          className="inline-flex items-center gap-1.5"
+          title={stale ? "The hourly refresh hasn't finished for a while" : "Career pages are re-read every hour"}
+        >
+          <span aria-hidden className={`size-1.5 rounded-full ${stale ? "bg-yellow-ink" : "bg-green-ink"}`} />
+          <span className={stale ? "text-yellow-ink" : undefined}>
+            Updated <time dateTime={syncedAt}>{ago(syncedAt)}</time>
+          </span>
+        </span>
+      )}
+      <span>
+        <span className="text-ink-strong">{n(open)}</span> open roles
+      </span>
+      <span>
+        <span className="text-ink-strong">{n(remote)}</span> remote
+      </span>
+      {!READ_ONLY && (
+        <Link href="/admin/companies" className="underline decoration-line underline-offset-4 hover:text-ink-strong">
+          admin
+        </Link>
+      )}
+    </p>
+  );
 }
 
 /** Shown while the database is empty, e.g. during a full refill after maintenance. */
@@ -114,7 +149,11 @@ export default async function Home(props: PageProps<'/'>) {
   }
   const filtered = query !== "";
   const syncedAt = await synced;
-  const stale = syncedAt ? isStale(syncedAt) : false;
+  // The introduction is for arriving: once someone searches, results come first.
+  const showIntro = !filtered && !f.cursor && pageCount(f.pages) === 1;
+  const hasProfile = (await cookies()).has(PROFILE_COOKIE);
+  const alertFilters = cleanFilters(sp);
+
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
@@ -136,61 +175,86 @@ export default async function Home(props: PageProps<'/'>) {
           }),
         }}
       />
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">
-            Unlisted
-          </h1>
-          <p className="mt-3 max-w-md text-pretty text-[15px] leading-relaxed text-ink">
-            Every role posted on {n(fc.totals.companies)} company career pages in the past{" "}
-            {MAX_AGE_DAYS} days, straight from the source, including the ones that never reach job boards.
-          </p>
-        </div>
-        <dl className="flex gap-6 text-xs text-muted">
-          <div>
-            <dt>Open roles</dt>
-            <dd className="mt-0.5 text-lg font-medium tabular-nums text-ink-strong">{n(fc.totals.open)}</dd>
-          </div>
-          <div>
-            <dt>Remote</dt>
-            <dd className="mt-0.5 text-lg font-medium tabular-nums text-ink-strong">{n(fc.totals.remote)}</dd>
-          </div>
-          {syncedAt && (
-            <div>
-              <dt>Updated</dt>
-              <dd
-                className={`mt-0.5 text-lg font-medium tabular-nums ${stale ? "text-yellow-ink" : "text-ink-strong"}`}
-                title={stale ? "The hourly refresh hasn't finished for a while" : "Career pages are re-read every hour"}
+      {showIntro && (
+        <>
+          <section aria-labelledby="hero-title" className="pt-4 sm:pt-8">
+            <Status syncedAt={syncedAt} open={fc.totals.open} remote={fc.totals.remote} />
+            <h1
+              id="hero-title"
+              className="mt-5 max-w-3xl text-balance font-serif text-[2.75rem] leading-[1.02] tracking-[-0.025em] text-ink-strong sm:text-7xl"
+            >
+              Every new role, straight from the company’s own careers page.
+            </h1>
+            <p className="mt-5 max-w-xl text-pretty text-[17px] leading-relaxed text-ink">
+              Unlisted reads {n(fc.totals.companies)} career pages every hour and keeps the past {MAX_AGE_DAYS} days,
+              including roles that never reach job boards. Every listing links to the employer&apos;s own posting.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <Link href="/for-you" className={PRIMARY}>
+                {hasProfile ? "Open your feed" : "Get your personal feed"}
+                <span aria-hidden>→</span>
+              </Link>
+              <a
+                href="#roles"
+                className="text-sm font-medium text-ink-strong underline decoration-line underline-offset-4 transition-colors hover:decoration-current"
               >
-                <time dateTime={syncedAt}>{ago(syncedAt)}</time>
-              </dd>
+                Browse all {n(fc.totals.open)} roles
+              </a>
             </div>
-          )}
-          {!READ_ONLY && (
-            <div>
-              <dt>Admin</dt>
-              <dd className="mt-0.5 text-lg">
-                <Link href="/admin/companies" className="text-ink-strong underline decoration-line underline-offset-4 hover:decoration-current">
-                  companies
-                </Link>
-              </dd>
-            </div>
-          )}
-        </dl>
-      </header>
+          </section>
+          <HomeFeatures hasProfile={hasProfile} />
+        </>
+      )}
 
-      <Suspense fallback={<div className="h-[92px]" />}>
-        <FilterBar
-          countries={fc.countries}
-          departments={fc.departments}
+      <section id="roles" aria-labelledby="roles-title" className={showIntro ? "mt-16 scroll-mt-4 sm:mt-20" : "mt-6 sm:mt-10"}>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          {showIntro ? (
+            <h2 id="roles-title" className="font-serif text-3xl tracking-[-0.01em] text-ink-strong sm:text-4xl">
+              All roles
+            </h2>
+          ) : (
+            <h1 id="roles-title" className="font-serif text-3xl tracking-[-0.01em] text-ink-strong sm:text-4xl">
+              All roles
+            </h1>
+          )}
+          {!showIntro && <Status syncedAt={syncedAt} open={fc.totals.open} remote={fc.totals.remote} />}
+        </div>
+
+        <Suspense fallback={<div className="h-[92px]" />}>
+          <FilterBar
+            countries={fc.countries}
+            departments={fc.departments}
+          />
+        </Suspense>
+
+        <AlertSignup
+          filters={alertFilters as Record<string, string>}
+          rss={`/feed${query ? `?${query}` : ""}`}
+          what={describeFilters(alertFilters)}
         />
-      </Suspense>
 
-      <AlertSignup filters={cleanFilters(sp) as Record<string, string>} rss={`/feed${query ? `?${query}` : ""}`} />
-
-      <ul className="mt-2 border-t border-line">
-        {jobs.map((job) => (
-          <JobRow key={job.id} job={job} />
+      <ul className="mt-4 border-t border-line">
+        {jobs.map((job, i) => (
+          <Fragment key={job.id}>
+            <JobRow job={job} />
+            {i === 7 && !hasProfile && (
+              <li className="border-b border-line py-4">
+                <Link
+                  href="/for-you"
+                  className="group flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl border border-line bg-surface px-4 py-3.5 transition-colors duration-200 hover:border-muted"
+                >
+                  <span className="min-w-0 text-sm">
+                    <span className="font-medium text-ink-strong">Too many to scroll? </span>
+                    <span className="text-ink">For you ranks every role by your roles, skills and CV.</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-strong">
+                    Try it
+                    <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                  </span>
+                </Link>
+              </li>
+            )}
+          </Fragment>
         ))}
       </ul>
 
@@ -222,6 +286,7 @@ export default async function Home(props: PageProps<'/'>) {
           </Link>
         </div>
       )}
+      </section>
     </main>
   );
 }

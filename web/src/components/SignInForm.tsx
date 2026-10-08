@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 
 import { signInRequestAction } from "@/lib/forYouActions";
 
+import { CHIP } from "./ui";
+
 /**
  * Emailed sign-in link, behind a text button: "Use on another device" on a
  * device with a profile, "Sign in with email" on one without.
@@ -18,7 +20,7 @@ export default function SignInForm({ label, intro }: { label: string; intro: str
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-strong"
+        className={CHIP}
       >
         <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
           <rect x="2" y="3.5" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.6" />

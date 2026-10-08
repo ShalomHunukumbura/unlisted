@@ -98,3 +98,10 @@ body {
   --tw-prose-th-borders: var(--line);
   --tw-prose-td-borders: var(--line);
 }
+
+/* "Browse all roles" glides down to the list, unless motion is reduced. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { CHIP, CHIP_OFF, CHIP_ON } from "./ui";
+
 const KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
 type State = "loading" | "unsupported" | "ios" | "off" | "on" | "denied" | "busy";
@@ -132,14 +134,14 @@ export default function PushAlert({ filters = {}, forYou = false }: { filters?: 
 
   if (state === "ios") {
     return (
-      <span className="basis-full text-right sm:basis-auto" title="Safari only allows notifications from apps on the home screen">
-        On iPhone, tap Share then Add to Home Screen to get notifications
+      <span className="text-xs text-muted" title="Safari only allows notifications from apps on the home screen">
+        For notifications on iPhone: Share, then Add to Home Screen
       </span>
     );
   }
   if (state === "denied") {
     return (
-      <span className="inline-flex items-center gap-1.5" title="Allow notifications for this site in your browser settings">
+      <span className={CHIP_OFF} title="Allow notifications for this site in your browser settings">
         {icon}
         Notifications blocked
       </span>
@@ -153,7 +155,7 @@ export default function PushAlert({ filters = {}, forYou = false }: { filters?: 
         onClick={toggle}
         disabled={state === "busy"}
         aria-pressed={state === "on"}
-        className={`inline-flex items-center gap-1.5 transition-colors hover:text-ink-strong disabled:opacity-60 ${state === "on" ? "text-ink-strong" : ""}`}
+        className={state === "on" ? CHIP_ON : CHIP}
       >
         {icon}
         {state === "busy"
@@ -163,7 +165,7 @@ export default function PushAlert({ filters = {}, forYou = false }: { filters?: 
             : "Notify this device"}
       </button>
       {message && (
-        <p role="status" className="basis-full text-right text-xs text-ink">
+        <p role="status" className="basis-full text-xs text-ink sm:text-right">
           {message}
         </p>
       )}
