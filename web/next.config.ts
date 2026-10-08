@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Built from hourly data in a few seconds: let the CDN keep it for the
+        // hour, so search engines get it instantly and it's built once.
+        source: "/sitemap.xml",
+        headers: [{ key: "Cache-Control", value: "public, s-maxage=3600, stale-while-revalidate=86400" }],
+      },
+      {
         // Browsers check for a new service worker on each visit; never let a
         // cache hand them the old one.
         source: "/sw.js",
