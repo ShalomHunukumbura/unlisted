@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import JobActions from "@/components/JobActions";
 import JobRow, { ROW, ROW_LINK } from "@/components/JobRow";
+import ListMemory from "@/components/ListMemory";
 import MoreLink from "@/components/MoreLink";
 import ProfileEditor from "@/components/ProfileEditor";
 import ProfilePanel from "@/components/ProfilePanel";
@@ -161,6 +162,7 @@ export default async function ForYou(props: PageProps<"/for-you">) {
         />
       </div>
 
+      <ListMemory />
       <Tabs tab={tab} saved={profile.saved.length} />
 
       {tab === "saved" ? (

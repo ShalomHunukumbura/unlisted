@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import BackToList from "@/components/BackToList";
 import LiveCheck from "@/components/LiveCheck";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
@@ -114,12 +115,7 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-3xl px-4 pb-16 pt-8 sm:pt-12">
       {posting && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(posting) }} />}
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-ink-strong"
-      >
-        <span aria-hidden>←</span> All jobs
-      </Link>
+      <BackToList />
 
       <header className="mt-6">
         <p className="text-sm text-ink">

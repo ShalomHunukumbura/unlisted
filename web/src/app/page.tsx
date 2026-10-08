@@ -6,6 +6,7 @@ import { Fragment, Suspense } from "react";
 import AlertSignup from "@/components/AlertSignup";
 import FilterBar from "@/components/FilterBar";
 import HomeFeatures from "@/components/HomeFeatures";
+import ListMemory from "@/components/ListMemory";
 import { PRIMARY } from "@/components/ui";
 import JobRow from "@/components/JobRow";
 import { cleanFilters, describeFilters } from "@/lib/alerts";
@@ -206,6 +207,7 @@ export default async function Home(props: PageProps<'/'>) {
         </>
       )}
 
+      <ListMemory />
       <section id="roles" aria-labelledby="roles-title" className={showIntro ? "mt-16 scroll-mt-4 sm:mt-20" : "mt-6 sm:mt-10"}>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
           {showIntro ? (

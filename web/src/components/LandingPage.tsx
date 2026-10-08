@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import JobRow from "@/components/JobRow";
+import ListMemory from "@/components/ListMemory";
 import { countRoles, listJobsAlwaysCached, type Filters } from "@/lib/queries";
 import type { Landing } from "@/lib/seo";
 
@@ -37,6 +38,7 @@ export default async function LandingPage({
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+      <ListMemory />
       <nav aria-label="Breadcrumb" className="text-sm text-muted">
         <Link href="/" className="transition-colors hover:text-ink-strong">
           Unlisted
