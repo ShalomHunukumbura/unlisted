@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { countryName } from "@/components/Tags";
 
@@ -140,13 +140,31 @@ export default function FilterBar({ countries, departments }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, params]);
 
+  // Picking the first filter hides the home page's introduction above the
+  // list, and clearing the last one brings it back: about a thousand pixels
+  // appear or vanish above you. Keep the filters where they were on screen:
+  // note their position before the change, and correct the scroll once the
+  // new results are in, before the browser paints.
+  const anchor = useRef<number | null>(null);
+  const navigate = (url: string) => {
+    anchor.current = document.getElementById("roles")?.getBoundingClientRect().top ?? null;
+    startTransition(() => router.replace(url, { scroll: false }));
+  };
+  useLayoutEffect(() => {
+    const before = anchor.current;
+    anchor.current = null;
+    const after = document.getElementById("roles")?.getBoundingClientRect().top;
+    if (before == null || after == null || Math.abs(after - before) < 2) return;
+    window.scrollBy({ top: after - before, behavior: "instant" });
+  }, [params]);
+
   function set(key: string, value: string) {
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
     next.delete("cursor"); // any filter change resets pagination
     next.delete("pages");
-    startTransition(() => router.replace(`/?${next.toString()}`, { scroll: false }));
+    navigate(`/?${next.toString()}`);
   }
 
   const value = (key: string) => params.get(key) ?? "";
@@ -248,7 +266,7 @@ export default function FilterBar({ countries, departments }: Props) {
             type="button"
             onClick={() => {
               setQ("");
-              startTransition(() => router.replace("/", { scroll: false }));
+              navigate("/");
             }}
             className="col-span-2 justify-self-start rounded-md px-1 py-1.5 text-sm text-muted underline decoration-line underline-offset-4 transition-colors hover:text-ink-strong hover:decoration-current sm:ml-auto"
           >
