@@ -1,0 +1,78 @@
+name: Weekly blog drafts
+
+# Every Monday: draft the words above last week's report and one topic post
+# with GitHub Models (free, through this workflow's own token), from the
+# numbers in the database, and open a pull request. Nothing is published until
+# the pull request is merged; Vercel builds a preview of it to read first.
+#
+# Needs, once: Settings > Actions > General > Workflow permissions >
+# "Allow GitHub Actions to create and approve pull requests".
+on:
+  schedule:
+    # Monday 02:30 UTC (08:00 in Sri Lanka): last week's numbers are final by then.
+    - cron: "30 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "The Monday of the week to write about (YYYY-MM-DD). Empty: last week."
+        required: false
+        default: ""
+
+permissions:
+  contents: write       # push the drafts branch
+  pull-requests: write  # open the pull request
+  models: read          # GitHub Models
+
+concurrency:
+  group: blog
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WEEK: ${{ inputs.week }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e workers
+
+      - name: Draft the posts
+        working-directory: workers
+        run: |
+          if [ -n "$WEEK" ] && ! [[ "$WEEK" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "week must be YYYY-MM-DD"; exit 1
+          fi
+          jobsite blog-drafts ${WEEK:+--week "$WEEK"} --notes-file "$RUNNER_TEMP/notes.md"
+
+      - name: Open a pull request
+        run: |
+          if [ -z "$(git status --porcelain web/content)" ]; then echo "Nothing new to publish."; exit 0; fi
+          day="$(date -u +%Y-%m-%d)"
+          branch="blog/$day"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add web/content
+          git commit -m "Blog drafts for $day"
+          git push --force -u origin "$branch"
+          {
+            echo "Drafts written by GitHub Models from Unlisted's own numbers."
+            echo
+            echo "**Before merging:** open the Vercel preview (in the checks below) and read them on the site."
+            echo "Edit anything in the *Files changed* tab. Merge to publish; close to skip (the weekly"
+            echo "report still goes up on its own, with the charts only)."
+            echo
+            echo "## What to check"
+            echo
+            cat "$RUNNER_TEMP/notes.md"
+          } > "$RUNNER_TEMP/body.md"
+          # A second run the same day updates the open pull request instead.
+          gh pr create --base master --head "$branch" --title "Blog drafts: $day" --body-file "$RUNNER_TEMP/body.md" \
+            || gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"

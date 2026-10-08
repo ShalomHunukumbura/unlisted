@@ -358,6 +358,16 @@ make push-companies DEPLOY_URL="postgresql://..."
   Serif, and the post's chips as the site's tags, or, on reports, that week's
   roles per day. The same image is the share preview.
 - `BlogPosting` data, `/blog/rss.xml`, and every post in the sitemap.
+- **Weekly drafts, reviewed by a person.** `.github/workflows/blog.yml` runs
+  every Monday at 08:00 Sri Lanka time: `jobsite blog-drafts`
+  (`workers/src/jobsite/blogwriter.py`) gives GitHub Models (free, through the
+  workflow's own token) last week's numbers and the week before's, and it
+  writes the words above the report and one topic post, rotating between
+  remote roles open to APAC, the skill and the job title that grew most, and
+  who hired most. Links to anything but the site's own pages are removed, and
+  any number that isn't in the data is listed in the pull request the
+  workflow opens. Nothing goes live until it's merged. `jobsite blog-drafts
+  --facts-only` shows exactly what the model would be given.
 
 ## Email
 

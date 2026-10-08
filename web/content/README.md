@@ -30,3 +30,10 @@ every sync. To add your own words above the charts, create
 ```markdown
 Two or three paragraphs: what stood out this week, and why it matters.
 ```
+
+## Drafts every Monday
+
+The "Weekly blog drafts" workflow writes both of the above for you (the
+report's words and a topic post) and opens a pull request. Read the Vercel
+preview, edit in the pull request if needed, and merge to publish. A file you
+already wrote for the week is left alone.

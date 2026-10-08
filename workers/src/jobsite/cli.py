@@ -197,6 +197,42 @@ def embed_cmd(
     typer.echo(f"embedded {embed.embed_new(max_seconds=max_seconds)} jobs")
 
 
+@app.command("blog-drafts")
+def blog_drafts_cmd(
+    content: Path = typer.Option(Path("../web/content"), help="The web app's content folder"),
+    week: str = typer.Option(None, help="The Monday of the week to write about (default: last week)"),
+    facts_only: bool = typer.Option(False, "--facts-only", help="Print the facts the model would get; write nothing"),
+    notes_file: Path = typer.Option(None, help="Write the review notes here (Markdown, for the pull request)"),
+) -> None:
+    """Draft the weekly report's words and a topic post with GitHub Models (needs GITHUB_TOKEN)."""
+    import datetime as dt
+    import json
+
+    from . import blogwriter
+
+    _setup_logging()
+    today = dt.datetime.now(dt.timezone.utc).date()
+    monday = dt.date.fromisoformat(week) if week else blogwriter.last_week(today)
+    if facts_only:
+        stats, previous = blogwriter.reports(monday)
+        if not stats:
+            typer.echo(f"no numbers saved for the week of {monday}")
+            raise typer.Exit(1)
+        topic = blogwriter.pick_topic(monday, stats, previous)
+        typer.echo(json.dumps({"week": monday, "topic": topic.kind, "brief": topic.brief,
+                               "links": topic.links, "facts": topic.facts}, indent=2, default=str))
+        return
+    drafts = blogwriter.run(content, monday, today)
+    lines = []
+    for d in drafts:
+        typer.echo(f"wrote {d.path}")
+        lines.append(f"### {d.title}\n`{d.path.relative_to(content.parent)}`\n")
+        lines += [f"- {n}" for n in d.notes] or ["- Nothing flagged."]
+        lines.append("")
+    if notes_file:
+        notes_file.write_text("\n".join(lines))
+
+
 @app.command("stats")
 def stats() -> None:
     """Quick health check of what's in the database."""
