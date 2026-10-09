@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 import SiteNav from "@/components/SiteNav";
+import ScrollToTop from "@/components/ScrollToTop";
 import { SITE_URL } from "@/lib/seo";
 
 const geistSans = Geist({
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <SiteNav />
         {children}
+        <ScrollToTop />
         <footer className="mt-auto border-t border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">
             <p className="max-w-xl text-pretty">
