@@ -16,6 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 # `jobsite embed`: the "For you" feed's job embeddings (ONNX, no PyTorch).
 embed = ["fastembed>=0.7"]
+# `jobsite index-notify`: signing in to Google's Indexing API.
+indexing = ["pyjwt[crypto]>=2.8"]
 
 [project.scripts]
 jobsite = "jobsite.cli:app"

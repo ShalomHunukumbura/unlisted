@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install -e "workers[embed]"
+      - run: pip install -e "workers[embed,indexing]"
       # The embedding model (~90 MB), so it isn't downloaded every hour.
       - uses: actions/cache@v6
         with:
@@ -84,6 +84,16 @@ jobs:
           if [ -z "$ALERTS_SECRET" ]; then echo "ALERTS_SECRET not set, skipping"; exit 0; fi
           curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $ALERTS_SECRET" \
             "$SITE_URL/api/alerts/send" | tee -a "$GITHUB_STEP_SUMMARY"
+      # Google finds few job pages on its own within the week they're up. Uses
+      # the Indexing API's daily quota; skipped until the secret exists.
+      - name: Tell Google about new and closed roles
+        if: ${{ !cancelled() }}
+        env:
+          GOOGLE_INDEXING_KEY: ${{ secrets.GOOGLE_INDEXING_KEY }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://findunlisted.link' }}
+          INDEXING_DAILY_LIMIT: ${{ vars.INDEXING_DAILY_LIMIT || '200' }}
+        run: jobsite index-notify | tee -a "$GITHUB_STEP_SUMMARY"
+        working-directory: workers
       - name: Summary
         if: always()
         run: jobsite stats | tee -a "$GITHUB_STEP_SUMMARY"

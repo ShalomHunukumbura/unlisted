@@ -233,6 +233,25 @@ def blog_drafts_cmd(
         notes_file.write_text("\n".join(lines))
 
 
+@app.command("index-notify")
+def index_notify_cmd(
+    limit: int = typer.Option(None, help="Requests allowed in 24 hours (default: INDEXING_DAILY_LIMIT, 200)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Say what would be sent; send nothing"),
+) -> None:
+    """Tell Google's Indexing API about new and closed job pages (needs GOOGLE_INDEXING_KEY)."""
+    from . import indexing
+    from .config import settings
+
+    _setup_logging()
+    if not dry_run and not settings.google_indexing_key:
+        typer.echo("GOOGLE_INDEXING_KEY not set, skipping")
+        return
+    result = indexing.notify(limit=limit, dry_run=dry_run)
+    typer.echo(("would have " if dry_run else "") + str(result))
+    if result.stopped:
+        raise typer.Exit(1)
+
+
 @app.command("stats")
 def stats() -> None:
     """Quick health check of what's in the database."""

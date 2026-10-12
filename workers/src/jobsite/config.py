@@ -26,5 +26,12 @@ class Settings(BaseSettings):
     # each). Older rows are pruned so the log can't fill a free-tier database.
     sync_runs_keep_hours: int = 6
 
+    # `jobsite index-notify`: the site's address, a Google service account key
+    # (the JSON file's contents) that owns the site in Search Console, and the
+    # Indexing API's daily quota (200 unless Google has raised it).
+    site_url: str = "https://findunlisted.link"
+    google_indexing_key: str = ""
+    indexing_daily_limit: int = 200
+
 
 settings = Settings()

@@ -10,3 +10,4 @@ out/
 next-env.d.ts
 .env.local
 *.swp
+/graphify-out
