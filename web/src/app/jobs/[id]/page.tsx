@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import AppliedButton from "@/components/AppliedButton";
 import BackToList from "@/components/BackToList";
 import LiveCheck from "@/components/LiveCheck";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
@@ -198,7 +199,8 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
               <path d="M5 11l6-6M6 5h5v5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </a>
-          <span className="text-xs text-muted">Opens the employer&apos;s own posting</span>
+          <AppliedButton jobId={job.id} />
+          <span className="basis-full text-xs text-muted">Apply opens the employer&apos;s own posting</span>
         </div>
         {!job.closed_at && (
           <div className="mt-3">

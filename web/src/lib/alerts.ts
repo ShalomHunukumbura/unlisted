@@ -140,6 +140,79 @@ export async function subscribe(rawEmail: string, filters: Filters, origin: stri
   return sent;
 }
 
+// ---------------------------------------------------------------- with an account
+
+export type Alert = {
+  id: string;
+  filters: Filters;
+  /** "on": emailing. "paused": switched off, kept. "unconfirmed": made before signing in, never confirmed. */
+  state: "on" | "paused" | "unconfirmed";
+  last_sent_at: string | null;
+};
+
+/** Every alert an address has, newest first. */
+export async function alertsFor(email: string): Promise<Alert[]> {
+  const rows = await query<Subscription & { last_sent_at: Date | null }>(
+    `SELECT id::text, filters, confirmed_at, unsubscribed_at, last_sent_at
+       FROM alert_subscriptions WHERE email = $1 ORDER BY created_at DESC`,
+    [email],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    filters: r.filters,
+    state: r.unsubscribed_at ? "paused" : r.confirmed_at ? "on" : "unconfirmed",
+    last_sent_at: r.last_sent_at?.toISOString() ?? null,
+  }));
+}
+
+/**
+ * Follow a search with the address someone is signed in with. It's already
+ * proven (they opened a sign-in link sent to it), so there's no confirmation
+ * email: the alert is on from now.
+ */
+export async function follow(email: string, filters: Filters): Promise<SubscribeResult> {
+  if (Object.keys(filters).length === 0) {
+    return { ok: false, message: "Search or pick a filter first: an alert for every new role would be hundreds a day." };
+  }
+  const [{ mine, same }] = await query<{ mine: number; same: number }>(
+    `SELECT count(*) FILTER (WHERE unsubscribed_at IS NULL)::int AS mine,
+            count(*) FILTER (WHERE filters = $2::jsonb)::int AS same
+       FROM alert_subscriptions WHERE email = $1`,
+    [email, JSON.stringify(filters)],
+  );
+  if (!same && mine >= SUBSCRIPTIONS_PER_EMAIL) {
+    return { ok: false, message: `You already have ${SUBSCRIPTIONS_PER_EMAIL} alerts. Delete or pause one first.` };
+  }
+  await query(
+    `INSERT INTO alert_subscriptions (email, filters, token, confirmed_at, checked_until)
+     VALUES ($1, $2::jsonb, $3, now(), now())
+     ON CONFLICT (email, filters) DO UPDATE
+        SET unsubscribed_at = NULL,
+            confirmed_at = COALESCE(alert_subscriptions.confirmed_at, now()),
+            checked_until = CASE WHEN alert_subscriptions.confirmed_at IS NULL OR alert_subscriptions.unsubscribed_at IS NOT NULL
+                                 THEN now() ELSE alert_subscriptions.checked_until END`,
+    [email, JSON.stringify(filters), randomBytes(24).toString("base64url")],
+  );
+  return { ok: true, message: `On: new matches for this search go to ${email} after each hourly update.` };
+}
+
+/** Pause, or switch (back) on from now: roles from while it was off aren't news. */
+export async function setAlertOn(email: string, id: string, on: boolean): Promise<void> {
+  if (!/^\d{1,18}$/.test(id)) return;
+  await query(
+    on
+      ? `UPDATE alert_subscriptions SET unsubscribed_at = NULL, confirmed_at = COALESCE(confirmed_at, now()), checked_until = now()
+          WHERE id = $1 AND email = $2 AND (unsubscribed_at IS NOT NULL OR confirmed_at IS NULL)`
+      : `UPDATE alert_subscriptions SET unsubscribed_at = now() WHERE id = $1 AND email = $2 AND unsubscribed_at IS NULL`,
+    [id, email],
+  );
+}
+
+export async function deleteAlert(email: string, id: string): Promise<void> {
+  if (!/^\d{1,18}$/.test(id)) return;
+  await query(`DELETE FROM alert_subscriptions WHERE id = $1 AND email = $2`, [id, email]);
+}
+
 export async function getSubscription(token: string): Promise<Subscription | null> {
   if (!/^[\w-]{20,64}$/.test(token)) return null;
   const rows = await query<Subscription>(

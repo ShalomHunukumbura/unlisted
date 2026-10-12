@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useActionState, useState, useSyncExternalStore } from "react";
 
-import { subscribeAction } from "@/lib/alertActions";
+import { followAction, subscribeAction } from "@/lib/alertActions";
+import { onSessionChange, signedInHere } from "@/lib/session";
 
 import InstallApp from "./InstallApp";
 import PushAlert from "./PushAlert";
@@ -10,7 +12,8 @@ import { CHIP } from "./ui";
 
 /**
  * "Follow this search": the search on screen by email (after a confirmation
- * link), as a notification on this device, or by RSS. Without a search or a
+ * link, or straight away for someone signed in), as a notification on this
+ * device, or by RSS. Without a search or a
  * filter there's nothing to follow yet, and it says so.
  */
 export default function AlertSignup({
@@ -25,6 +28,9 @@ export default function AlertSignup({
 }) {
   const [open, setOpen] = useState(false);
   const [result, action, pending] = useActionState(subscribeAction, null);
+  const [followed, follow, following] = useActionState(followAction, null);
+  // Read after hydration only: the page is the same for everyone.
+  const signedIn = useSyncExternalStore(onSessionChange, signedInHere, () => false);
   const hasFilters = Object.keys(filters).length > 0;
 
   return (
@@ -62,7 +68,36 @@ export default function AlertSignup({
         </div>
       </div>
 
-      {open && hasFilters && (
+      {open && hasFilters && signedIn && (
+        <div className="mt-4 border-t border-line pt-4">
+          {followed?.ok ? (
+            <p role="status" className="text-sm text-ink-strong">
+              {followed.message}{" "}
+              <Link href="/account/alerts" className="underline decoration-line underline-offset-4 hover:decoration-current">
+                Your alerts
+              </Link>
+            </p>
+          ) : (
+            <form action={follow} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <input type="hidden" name="filters" value={JSON.stringify(filters)} />
+              <button
+                type="submit"
+                disabled={following}
+                className="rounded-full bg-ink-strong px-5 py-2 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98] disabled:opacity-60"
+              >
+                {following ? "Saving…" : "Email me new matches"}
+              </button>
+              <span className="text-xs text-muted">
+                To the address you&apos;re signed in with, one email after each hourly update. Pause or delete it
+                from your account.
+              </span>
+              {followed && !followed.ok && <p role="alert" className="basis-full text-sm text-yellow-ink">{followed.message}</p>}
+            </form>
+          )}
+        </div>
+      )}
+
+      {open && hasFilters && !signedIn && (
         <div className="mt-4 border-t border-line pt-4">
           {result?.ok ? (
             <p role="status" className="text-sm text-ink-strong">{result.message}</p>

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 
 import DeleteAccount from "@/components/DeleteAccount";
 import { signOutAction } from "@/lib/forYouActions";
+import { alertsFor } from "@/lib/alerts";
+import { countApplications } from "@/lib/applications";
 import { currentProfile } from "@/lib/profile";
 
 export const metadata: Metadata = { title: "Your account", robots: { index: false } };
@@ -15,6 +17,8 @@ export default async function Account() {
   const profile = await currentProfile();
   if (!profile?.email) redirect("/signin");
   const setUp = profile.roles.length > 0 || profile.skills.length > 0;
+  const [applications, alerts] = await Promise.all([countApplications(profile.id), alertsFor(profile.email)]);
+  const alertsOn = alerts.filter((a) => a.state === "on").length;
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
@@ -45,6 +49,30 @@ export default async function Account() {
               <span className="font-medium text-ink-strong">Saved roles</span>
               <span className="mt-0.5 block text-muted">
                 {profile.saved.length ? `${profile.saved.length} saved` : "Nothing saved yet"}
+              </span>
+            </span>
+            <span aria-hidden className="text-muted">→</span>
+          </Link>
+        </li>
+        <li>
+          <Link href="/account/applications" className={ROW}>
+            <span>
+              <span className="font-medium text-ink-strong">Applications</span>
+              <span className="mt-0.5 block text-muted">
+                {applications ? `${applications} tracked` : "Keep track of where you've applied"}
+              </span>
+            </span>
+            <span aria-hidden className="text-muted">→</span>
+          </Link>
+        </li>
+        <li>
+          <Link href="/account/alerts" className={ROW}>
+            <span>
+              <span className="font-medium text-ink-strong">Email alerts</span>
+              <span className="mt-0.5 block text-muted">
+                {alerts.length
+                  ? `${alertsOn} on${alerts.length > alertsOn ? `, ${alerts.length - alertsOn} off` : ""}`
+                  : "Follow a search and get new matches by email"}
               </span>
             </span>
             <span aria-hidden className="text-muted">→</span>

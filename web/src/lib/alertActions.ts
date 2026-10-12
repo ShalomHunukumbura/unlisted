@@ -1,8 +1,10 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { cleanFilters, confirm, subscribe, unsubscribe, type SubscribeResult } from "./alerts";
+import { cleanFilters, confirm, deleteAlert, follow, setAlertOn, subscribe, unsubscribe, type SubscribeResult } from "./alerts";
+import { currentProfile } from "./profile";
 import { siteOrigin } from "./site";
 
 export async function subscribeAction(_prev: SubscribeResult | null, form: FormData): Promise<SubscribeResult> {
@@ -30,4 +32,25 @@ export async function confirmAction(token: string) {
 export async function unsubscribeAction(token: string) {
   await unsubscribe(token);
   redirect(`/alerts/unsubscribe/${token}`);
+}
+
+/** "Follow this search" when signed in: no address to type, no confirmation email. */
+export async function followAction(_prev: SubscribeResult | null, form: FormData): Promise<SubscribeResult> {
+  const email = (await currentProfile())?.email;
+  if (!email) return { ok: false, message: "You've been signed out. Sign in again to follow this search." };
+  try {
+    return await follow(email, cleanFilters(JSON.parse(String(form.get("filters") ?? "{}"))));
+  } catch (error) {
+    console.error("follow failed", error);
+    return { ok: false, message: "Something went wrong. Reload the page and try again." };
+  }
+}
+
+/** The account's alerts page: pause, switch on, delete. */
+export async function alertAction(id: string, what: "on" | "pause" | "delete") {
+  const email = (await currentProfile())?.email;
+  if (!email) redirect("/signin");
+  if (what === "delete") await deleteAlert(email, id);
+  else await setAlertOn(email, id, what === "on");
+  revalidatePath("/account/alerts");
 }
