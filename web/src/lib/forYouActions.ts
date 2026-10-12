@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { signOut } from "./profile";
 import { redeemSignIn, requestSignIn, type SignInResult } from "./signin";
 import { siteOrigin } from "./site";
 
@@ -18,4 +19,9 @@ export async function signInRequestAction(_prev: SignInResult | null, form: Form
 export async function redeemSignInAction(token: string) {
   const ok = await redeemSignIn(token);
   redirect(ok ? "/for-you" : "/for-you/signin?expired=1");
+}
+
+export async function signOutAction() {
+  await signOut();
+  redirect("/");
 }

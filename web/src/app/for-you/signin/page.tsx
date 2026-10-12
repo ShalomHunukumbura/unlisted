@@ -19,18 +19,18 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
         {token && !sp.expired ? (
           <>
             <h1 className="font-serif text-3xl leading-tight tracking-[-0.01em] text-ink-strong">
-              Open your profile on this device
+              Sign in to Unlisted
             </h1>
             <p className="mt-3 text-pretty text-[15px] leading-relaxed text-ink">
-              Your &ldquo;For you&rdquo; feed, saved roles and preferences will be here too. If this device already
-              has a different profile, it&apos;s replaced by this one.
+              One press and you&apos;re in: your &ldquo;For you&rdquo; feed and saved roles are here on this
+              device too.
             </p>
             <form action={redeemSignInAction.bind(null, token)} className="mt-6">
               <button
                 type="submit"
                 className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
               >
-                Open my profile
+                Sign in
               </button>
             </form>
           </>
@@ -40,13 +40,13 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
               That link has expired
             </h1>
             <p className="mt-3 text-pretty text-[15px] leading-relaxed text-ink">
-              Sign-in links work once, for 30 minutes. Ask for a new one from the For you page.
+              Sign-in links work once, for 30 minutes. Ask for a new one.
             </p>
             <Link
-              href="/for-you"
+              href="/signin"
               className="mt-6 inline-block rounded-md border border-line px-4 py-2 text-sm text-ink-strong transition-colors hover:bg-hover"
             >
-              Go to For you
+              Send a new link
             </Link>
           </>
         )}

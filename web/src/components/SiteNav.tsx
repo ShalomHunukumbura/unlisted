@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
+
+import { onSessionChange, signedInHere } from "@/lib/session";
 
 const LINKS = [
   { href: "/remote", label: "Remote" },
@@ -10,12 +13,16 @@ const LINKS = [
 ];
 
 /**
- * The site header: the name, a couple of ways to browse, and For you as the
- * one button, so a first-time visitor sees there's a personal feed.
+ * The site header: the name, a couple of ways to browse, For you as the one
+ * button, so a first-time visitor sees there's a personal feed, and Sign in
+ * (or, signed in, the way to the account).
  */
 export default function SiteNav() {
   const path = usePathname();
   const forYou = path.startsWith("/for-you");
+  // Read after hydration only: the pages are cached without knowing who's looking.
+  const signedIn = useSyncExternalStore(onSessionChange, signedInHere, () => false);
+  const account = path === "/account" || path === "/signin";
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 pt-5">
       <Link
@@ -56,6 +63,29 @@ export default function SiteNav() {
           </svg>
           For you
         </Link>
+        {signedIn ? (
+          <Link
+            href="/account"
+            aria-label="Your account"
+            aria-current={account ? "page" : undefined}
+            className={`ml-1 grid size-8 place-items-center rounded-full border transition-colors ${
+              account ? "border-ink-strong text-ink-strong" : "border-line text-ink hover:border-muted hover:text-ink-strong"
+            }`}
+          >
+            <svg aria-hidden viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="8" cy="5.5" r="2.5" />
+              <path d="M3 13.5c.6-2.3 2.6-3.5 5-3.5s4.4 1.2 5 3.5" />
+            </svg>
+          </Link>
+        ) : (
+          <Link
+            href="/signin"
+            aria-current={account ? "page" : undefined}
+            className={`rounded-full px-3 py-1.5 transition-colors ${account ? "text-ink-strong" : "text-muted hover:text-ink-strong"}`}
+          >
+            Sign in
+          </Link>
+        )}
       </nav>
     </header>
   );

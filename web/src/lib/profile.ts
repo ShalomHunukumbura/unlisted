@@ -5,11 +5,13 @@ import { cookies } from "next/headers";
 import { cleanFilters } from "./alerts";
 import { query } from "./db";
 import { getJob, iso, type Filters } from "./queries";
+import { SIGNED_IN } from "./session";
 
 /**
- * A "For you" profile. No account: the browser holds a random token in a
- * cookie, and that's the only key to the profile. An email address can be
- * added later, only so the same profile can be opened on another device.
+ * A "For you" profile, which is also the account. The browser holds a random
+ * token in a cookie, and that's the only key to the profile. Without an email
+ * address it lives on that one device; signing in (an emailed link) gives it
+ * the address, and the same profile then opens on any device.
  */
 export const COOKIE = "unlisted_profile";
 // Chrome caps cookie lifetimes at 400 days; each visit renews it.
@@ -84,14 +86,35 @@ export async function currentProfile(): Promise<Profile | null> {
 }
 
 /** Route handlers and server actions only: pages can't set cookies. */
-export async function rememberProfile(token: string) {
-  (await cookies()).set(COOKIE, token, {
-    httpOnly: true,
+export async function rememberProfile(token: string, signedIn = false) {
+  const jar = await cookies();
+  const options = {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: COOKIE_MAX_AGE,
     path: "/",
-  });
+  } as const;
+  jar.set(COOKIE, token, { ...options, httpOnly: true });
+  if (signedIn) jar.set(SIGNED_IN, "1", options);
+  else jar.delete(SIGNED_IN);
+}
+
+/** This device forgets the profile; it stays, for the next sign-in. */
+export async function signOut(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(COOKIE);
+  jar.delete(SIGNED_IN);
+}
+
+/** An empty profile for a proven address, or the one that address already has. Returns its token. */
+export async function profileForEmail(email: string): Promise<string> {
+  const [made] = await query<{ token: string }>(
+    `INSERT INTO profiles (token, email) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING RETURNING token`,
+    [randomBytes(24).toString("base64url"), email],
+  );
+  if (made) return made.token;
+  const [owner] = await query<{ token: string }>(`SELECT token FROM profiles WHERE email = $1`, [email]);
+  return owner.token;
 }
 
 export type ProfileInput = {
@@ -169,6 +192,7 @@ export async function deleteProfile(): Promise<void> {
   const token = jar.get(COOKIE)?.value;
   if (token) await query(`DELETE FROM profiles WHERE token = $1`, [token]);
   jar.delete(COOKIE);
+  jar.delete(SIGNED_IN);
 }
 
 export type JobAction = "hide" | "unhide" | "save" | "unsave";

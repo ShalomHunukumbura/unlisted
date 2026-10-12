@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import AccountHint from "@/components/AccountHint";
 import JobActions from "@/components/JobActions";
 import JobRow, { ROW, ROW_LINK } from "@/components/JobRow";
 import ListMemory from "@/components/ListMemory";
@@ -101,24 +102,30 @@ async function Saved({ profile }: { profile: Profile }) {
   );
 }
 
-function Intro({ countries }: { countries: { country: string; n: string }[] }) {
+/** Before there's anything to rank by: no profile, or an account that hasn't said what it's after. */
+function Intro({ countries, email }: { countries: { country: string; n: string }[]; email: string | null }) {
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+      <AccountHint signedIn={email !== null} />
       <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">For you</h1>
       <p className="mt-3 max-w-xl text-pretty text-[15px] leading-relaxed text-ink">
         Tell Unlisted what you&apos;re after and every role from the past {MAX_AGE_DAYS} days is ranked by how well it
-        fits: the roles you want, the skills you have and, if you add one, your CV. No account needed.
+        fits: the roles you want, the skills you have and, if you add one, your CV.
+        {email ? "" : " No account needed."}
       </p>
       <div className="mt-8">
         <ProfileEditor initial={null} countries={countries} />
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
-        <span>Set one up on another device?</span>
-        <SignInForm
-          label="Sign in with email"
-          intro="If you linked an email address to your profile, we'll send a link that opens it here."
-        />
-      </div>
+      {email ? (
+        <p className="mt-4 text-xs text-muted">
+          Signed in as {email}. It&apos;s saved to your account, so it&apos;s on every device you sign in on.
+        </p>
+      ) : (
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
+          <span>Already have an account?</span>
+          <SignInForm label="Sign in" intro="We'll email a link that signs you in on this device. No password." />
+        </div>
+      )}
     </main>
   );
 }
@@ -126,7 +133,9 @@ function Intro({ countries }: { countries: { country: string; n: string }[] }) {
 export default async function ForYou(props: PageProps<"/for-you">) {
   const sp = await props.searchParams;
   const [profile, fc] = await Promise.all([currentProfile(), facets()]);
-  if (!profile) return <Intro countries={fc.countries} />;
+  if (!profile || (!profile.roles.length && !profile.skills.length)) {
+    return <Intro countries={fc.countries} email={profile?.email ?? null} />;
+  }
 
   const tab = sp.tab === "saved" ? "saved" : "matches";
   const pages = Math.min(MAX_PAGES, Math.max(1, Math.floor(Number(sp.pages)) || 1));
@@ -152,15 +161,18 @@ export default async function ForYou(props: PageProps<"/for-you">) {
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-xs text-muted">
         <PushAlert forYou />
-        <SignInForm
-          label={profile.email ? `Linked to ${profile.email}` : "Use on another device"}
-          intro={
-            profile.email
-              ? "Open this profile on another device: we'll email a link to the address it's linked to."
-              : "We'll email a link that opens this profile on any device. The address is only used for sign-in links."
-          }
-        />
+        {profile.email ? (
+          <Link href="/account" className="transition-colors hover:text-ink-strong">
+            Signed in as {profile.email}
+          </Link>
+        ) : (
+          <SignInForm
+            label="Sign in to keep it"
+            intro="We'll email a link that signs you in. This feed and your saved roles become your account, on every device. No password."
+          />
+        )}
       </div>
+      <AccountHint signedIn={profile.email !== null} />
 
       <ListMemory />
       <Tabs tab={tab} saved={profile.saved.length} />
