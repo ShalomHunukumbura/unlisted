@@ -2,7 +2,9 @@ import { createElement } from "react";
 
 import AlertEmail, { type AlertJob } from "@/emails/AlertEmail";
 import ConfirmEmail from "@/emails/ConfirmEmail";
+import DigestEmail from "@/emails/DigestEmail";
 import SignInEmail from "@/emails/SignInEmail";
+import type { Match } from "@/lib/match";
 import { renderEmail } from "@/lib/mail";
 
 const JOBS: AlertJob[] = [
@@ -13,7 +15,7 @@ const JOBS: AlertJob[] = [
 
 /**
  * Local previews of every email, with sample data: /api/dev/emails?name=alert
- * (or confirm, signin), and ?format=text for the plain-text part. Not
+ * (or confirm, signin, digest), and ?format=text for the plain-text part. Not
  * available in production.
  */
 export async function GET(request: Request) {
@@ -31,6 +33,11 @@ export async function GET(request: Request) {
       unsubscribeUrl: `${origin}/alerts/unsubscribe/sample`,
     }),
     confirm: createElement(ConfirmEmail, { email: "you@example.com", what, link: `${origin}/alerts/confirm/sample` }),
+    digest: createElement(DigestEmail, {
+      jobs: JOBS.map((job) => ({ ...job, role_hits: ["Backend Engineer"], skill_hits: ["Python", "AWS"], similarity: null, score: 1 }) as Match),
+      origin,
+      unsubscribeUrl: `${origin}/alerts/unsubscribe/sample`,
+    }),
     signin: createElement(SignInEmail, { link: `${origin}/for-you/signin?t=sample`, minutes: 30 }),
   };
   const name = url.searchParams.get("name") as keyof typeof emails;

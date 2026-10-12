@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sendAlerts } from "@/lib/alerts";
+import { sendDigests } from "@/lib/digest";
 import { cleanUpProfiles } from "@/lib/profile";
 import { sendPushAlerts } from "@/lib/push";
 import { saveCurrentWeek } from "@/lib/reports";
@@ -20,9 +21,14 @@ export async function POST(request: Request) {
   // Push first: it's quick and has no daily cap; email gets the rest of the time.
   const push = await sendPushAlerts(origin, started + 20_000);
   const email = await sendAlerts(origin, 45_000 - (Date.now() - started));
+  // The weekly emails whose week is up, with what's left of the minute.
+  const weekly = await sendDigests(origin, started + 52_000).catch((error) => {
+    console.error("weekly emails failed", error);
+    return null;
+  });
   await cleanUpProfiles();
   // The weekly report's numbers, while this week's jobs are all still here.
   // A failure here must not look like the alerts failed.
   await saveCurrentWeek().catch((error) => console.error("weekly report snapshot failed", error));
-  return NextResponse.json({ ...email, push });
+  return NextResponse.json({ ...email, push, weekly });
 }

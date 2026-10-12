@@ -16,6 +16,8 @@ import { ALERT_FILTER_KEYS, newMatches, type Filters } from "./queries";
 export const CONFIRMS_PER_HOUR = 40;
 const RESEND_CONFIRM_AFTER_MIN = 10;
 const SUBSCRIPTIONS_PER_EMAIL = 10;
+// Signed in, where following a company is one press and each is easy to switch off.
+const ALERTS_PER_ACCOUNT = 50;
 
 export const REMOTE: Record<string, string> = {
   apac: "Remote, open to Sri Lanka",
@@ -180,8 +182,8 @@ export async function follow(email: string, filters: Filters): Promise<Subscribe
        FROM alert_subscriptions WHERE email = $1`,
     [email, JSON.stringify(filters)],
   );
-  if (!same && mine >= SUBSCRIPTIONS_PER_EMAIL) {
-    return { ok: false, message: `You already have ${SUBSCRIPTIONS_PER_EMAIL} alerts. Delete or pause one first.` };
+  if (!same && mine >= ALERTS_PER_ACCOUNT) {
+    return { ok: false, message: `You already have ${ALERTS_PER_ACCOUNT} alerts. Delete or pause one first.` };
   }
   await query(
     `INSERT INTO alert_subscriptions (email, filters, token, confirmed_at, checked_until)
@@ -194,6 +196,27 @@ export async function follow(email: string, filters: Filters): Promise<Subscribe
     [email, JSON.stringify(filters), randomBytes(24).toString("base64url")],
   );
   return { ok: true, message: `On: new matches for this search go to ${email} after each hourly update.` };
+}
+
+/** Following a company is an alert for just that company: new roles there, by email. */
+export async function followsCompany(email: string, company: string): Promise<boolean> {
+  const rows = await query(
+    `SELECT 1 FROM alert_subscriptions
+      WHERE email = $1 AND filters = $2::jsonb AND confirmed_at IS NOT NULL AND unsubscribed_at IS NULL`,
+    [email, JSON.stringify({ company })],
+  );
+  return rows.length > 0;
+}
+
+export async function followCompany(email: string, company: string, on: boolean): Promise<SubscribeResult> {
+  const [known] = await query<{ name: string }>(`SELECT name FROM companies WHERE name = $1 LIMIT 1`, [company]);
+  if (!known) return { ok: false, message: "That company isn't on Unlisted." };
+  if (on) {
+    const result = await follow(email, { company });
+    return result.ok ? { ok: true, message: `Following: new roles at ${company} go to ${email}.` } : result;
+  }
+  await query(`DELETE FROM alert_subscriptions WHERE email = $1 AND filters = $2::jsonb`, [email, JSON.stringify({ company })]);
+  return { ok: true, message: `No longer following ${company}.` };
 }
 
 /** Pause, or switch (back) on from now: roles from while it was off aren't news. */

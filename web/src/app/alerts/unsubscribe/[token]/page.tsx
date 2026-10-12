@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import AlertPanel, { buttonClass } from "@/components/AlertPanel";
 import { unsubscribeAction } from "@/lib/alertActions";
 import { describeFilters, getSubscription } from "@/lib/alerts";
+import { digestByToken } from "@/lib/digest";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Unsubscribe", robots: { index: false } };
@@ -12,6 +13,25 @@ export const metadata: Metadata = { title: "Unsubscribe", robots: { index: false
 export default async function UnsubscribePage(props: PageProps<"/alerts/unsubscribe/[token]">) {
   const { token } = await props.params;
   const sub = await getSubscription(token);
+  // The weekly email's unsubscribe link comes here too.
+  const weekly = sub ? null : await digestByToken(token);
+  if (weekly) {
+    return weekly.digest ? (
+      <AlertPanel eyebrow="Weekly email" title="Stop the weekly email?">
+        <p>{weekly.email} gets its best matches from Unlisted once a week.</p>
+        <form action={unsubscribeAction.bind(null, token)}>
+          <button type="submit" className={buttonClass}>
+            Unsubscribe
+          </button>
+        </form>
+      </AlertPanel>
+    ) : (
+      <AlertPanel eyebrow="Weekly email · off" title="You're unsubscribed.">
+        No more weekly emails. You can switch it back on from your account, and any alerts you set up are
+        unaffected.
+      </AlertPanel>
+    );
+  }
   if (!sub) {
     return (
       <AlertPanel eyebrow="Email alert" title="Nothing to unsubscribe from.">

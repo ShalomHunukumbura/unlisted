@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { cleanFilters, confirm, deleteAlert, follow, setAlertOn, subscribe, unsubscribe, type SubscribeResult } from "./alerts";
+import { cleanFilters, confirm, deleteAlert, follow, followCompany, setAlertOn, subscribe, unsubscribe, type SubscribeResult } from "./alerts";
+import { setDigest, stopDigest } from "./digest";
 import { currentProfile } from "./profile";
 import { siteOrigin } from "./site";
 
@@ -31,6 +32,7 @@ export async function confirmAction(token: string) {
 
 export async function unsubscribeAction(token: string) {
   await unsubscribe(token);
+  await stopDigest(token); // the same page serves the weekly email's link
   redirect(`/alerts/unsubscribe/${token}`);
 }
 
@@ -53,4 +55,25 @@ export async function alertAction(id: string, what: "on" | "pause" | "delete") {
   if (what === "delete") await deleteAlert(email, id);
   else await setAlertOn(email, id, what === "on");
   revalidatePath("/account/alerts");
+}
+
+/** Follow or unfollow a company, from its page. */
+export async function followCompanyAction(company: string, on: boolean): Promise<SubscribeResult & { signedOut?: boolean }> {
+  const email = (await currentProfile())?.email;
+  if (!email) return { ok: false, signedOut: true, message: "Sign in to follow companies." };
+  try {
+    return await followCompany(email, company.slice(0, 200), on);
+  } catch (error) {
+    console.error("follow company failed", error);
+    return { ok: false, message: "Something went wrong. Please try again." };
+  }
+}
+
+/** The weekly email of best matches, on or off. */
+export async function digestAction(on: boolean) {
+  const profile = await currentProfile();
+  if (!profile?.email) redirect("/signin");
+  await setDigest(profile.id, on);
+  revalidatePath("/account");
+  revalidatePath("/for-you");
 }

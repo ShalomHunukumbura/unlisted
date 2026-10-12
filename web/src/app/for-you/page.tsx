@@ -10,7 +10,10 @@ import ProfileEditor from "@/components/ProfileEditor";
 import ProfilePanel from "@/components/ProfilePanel";
 import PushAlert from "@/components/PushAlert";
 import SignInForm from "@/components/SignInForm";
+import { CHIP, CHIP_ON } from "@/components/ui";
+import { digestAction } from "@/lib/alertActions";
 import { describeFilters } from "@/lib/alerts";
+import { digestState } from "@/lib/digest";
 import { query } from "@/lib/db";
 import { matchJobs, type Match } from "@/lib/match";
 import { currentProfile, type Profile } from "@/lib/profile";
@@ -142,6 +145,7 @@ export default async function ForYou(props: PageProps<"/for-you">) {
   const { jobs, more } = tab === "matches" ? await matchJobs(profile, { pages }) : { jobs: [], more: false };
   const savedIds = new Set(profile.saved.map((s) => s.id));
   const hasCv = profile.embedding !== null;
+  const digest = profile.email ? await digestState(profile.id) : false;
 
   return (
     <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
@@ -161,6 +165,22 @@ export default async function ForYou(props: PageProps<"/for-you">) {
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-xs text-muted">
         <PushAlert forYou />
+        {profile.email && (
+          <form action={digestAction.bind(null, !digest)} className="contents">
+            <button
+              type="submit"
+              aria-pressed={digest}
+              title={digest ? "Your 10 best matches by email, once a week. Press to stop" : "Get your 10 best matches by email, once a week"}
+              className={digest ? CHIP_ON : CHIP}
+            >
+              <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
+                <rect x="2" y="3.5" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M2.5 4.5L8 9l5.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+              {digest ? "Weekly email on" : "Weekly email"}
+            </button>
+          </form>
+        )}
         {profile.email ? (
           <Link href="/account" className="transition-colors hover:text-ink-strong">
             Signed in as {profile.email}

@@ -27,11 +27,14 @@ export default async function LandingPage({
   landing,
   related = [],
   eyebrow,
+  actions,
 }: {
   landing: Landing;
   related?: RelatedLink[];
   /** A small line above the heading, e.g. the company's careers site. */
   eyebrow?: React.ReactNode;
+  /** Under the intro, e.g. Follow on a company's page. */
+  actions?: React.ReactNode;
 }) {
   const [{ jobs }, total] = await Promise.all([listJobsAlwaysCached(landing.filters), countRoles(landing.filters)]);
   const all = searchHref(landing.filters);
@@ -56,6 +59,7 @@ export default async function LandingPage({
             ? <>{landing.intro.replace("{n}", n(total))} Every listing links to the employer&apos;s own posting.</>
             : "Nothing open from the past week. Unlisted only keeps a week of roles, and new ones come in every hour."}
         </p>
+        {actions && <div className="mt-5">{actions}</div>}
       </header>
 
       {jobs.length > 0 && (

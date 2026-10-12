@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import DeleteAccount from "@/components/DeleteAccount";
+import { digestAction } from "@/lib/alertActions";
+import { digestState } from "@/lib/digest";
 import { signOutAction } from "@/lib/forYouActions";
 import { alertsFor } from "@/lib/alerts";
 import { countApplications } from "@/lib/applications";
@@ -17,7 +19,11 @@ export default async function Account() {
   const profile = await currentProfile();
   if (!profile?.email) redirect("/signin");
   const setUp = profile.roles.length > 0 || profile.skills.length > 0;
-  const [applications, alerts] = await Promise.all([countApplications(profile.id), alertsFor(profile.email)]);
+  const [applications, alerts, digest] = await Promise.all([
+    countApplications(profile.id),
+    alertsFor(profile.email),
+    digestState(profile.id),
+  ]);
   const alertsOn = alerts.filter((a) => a.state === "on").length;
 
   return (
@@ -77,6 +83,28 @@ export default async function Account() {
             </span>
             <span aria-hidden className="text-muted">→</span>
           </Link>
+        </li>
+        <li className="flex items-center justify-between gap-4 px-5 py-4 text-sm">
+          <span>
+            <span className="font-medium text-ink-strong">Weekly email</span>
+            <span className="mt-0.5 block text-muted">
+              {digest
+                ? "On: your 10 best For you matches, once a week"
+                : setUp
+                  ? "Your 10 best For you matches, once a week"
+                  : "Your best matches once a week. Set up For you first"}
+            </span>
+          </span>
+          <form action={digestAction.bind(null, !digest)}>
+            <button
+              type="submit"
+              className={`rounded-md border px-3 py-1.5 transition-colors active:scale-[0.98] ${
+                digest ? "border-line text-ink hover:bg-hover" : "border-ink-strong font-medium text-ink-strong hover:bg-hover"
+              }`}
+            >
+              {digest ? "Turn off" : "Turn on"}
+            </button>
+          </form>
         </li>
       </ul>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import FollowCompany from "@/components/FollowCompany";
 import LandingPage from "@/components/LandingPage";
 import { countRoles } from "@/lib/queries";
 import { REMOTE_PAGES, companyBySlug, type Landing } from "@/lib/seo";
@@ -38,6 +39,7 @@ export default async function Company(props: PageProps<"/companies/[slug]">) {
   return (
     <LandingPage
       landing={landingFor(slug, company.name)}
+      actions={<FollowCompany name={company.name} />}
       related={[{ href: "/companies", label: "All companies" }, ...REMOTE_PAGES.map((p) => ({ href: p.path, label: p.title }))]}
     />
   );

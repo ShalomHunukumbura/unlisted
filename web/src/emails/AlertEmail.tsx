@@ -38,6 +38,47 @@ function Tag({ children, tone = "neutral", isMono = false }: { children: React.R
   );
 }
 
+/** The roles, one under another: title (a link), company and place, pay and remote tags. */
+export function JobRows<J extends AlertJob>({
+  jobs,
+  origin,
+  note,
+}: {
+  jobs: J[];
+  origin: string;
+  /** A line under a role, e.g. what it matched. */
+  note?: (job: J) => string | null;
+}) {
+  return (
+    <>
+      {jobs.map((job) => {
+        const why = note?.(job);
+        const remote = remoteLabel(job);
+        const pay = payLabel(job);
+        return (
+          <Section key={job.id} style={{ borderTop: `1px solid ${color.line}`, padding: "14px 0" }}>
+            <Link href={`${origin}/jobs/${job.id}`} style={{ fontSize: 15, fontWeight: 600, color: color.strong, textDecoration: "none" }}>
+              {job.title}
+            </Link>
+            <Text style={{ fontSize: 14, lineHeight: "20px", color: color.muted, margin: "2px 0 0" }}>
+              <span style={{ color: color.ink }}>{job.company_name}</span>
+              {job.location_raw ? ` · ${job.location_raw}` : ""}
+            </Text>
+            {why && <Text style={{ fontSize: 13, lineHeight: "18px", color: color.greenInk, margin: "6px 0 0" }}>{why}</Text>}
+            {(remote || pay) && (
+              <Text style={{ margin: "8px 0 0", lineHeight: "20px" }}>
+                {/* The space keeps the tags apart in the plain-text part. */}
+                {pay && <Tag isMono>{pay}</Tag>}{" "}
+                {remote && <Tag tone={remote.tone}>{remote.text}</Tag>}
+              </Text>
+            )}
+          </Section>
+        );
+      })}
+    </>
+  );
+}
+
 /** One email after a sync: the roles that are new for a saved search. */
 export default function AlertEmail({
   what,
@@ -73,28 +114,7 @@ export default function AlertEmail({
       <Heading as="h1" style={{ fontSize: 22, lineHeight: "28px", color: color.strong, margin: "4px 0 8px", fontWeight: 600 }}>
         {count}
       </Heading>
-      {jobs.map((job) => {
-        const remote = remoteLabel(job);
-        const pay = payLabel(job);
-        return (
-          <Section key={job.id} style={{ borderTop: `1px solid ${color.line}`, padding: "14px 0" }}>
-            <Link href={`${origin}/jobs/${job.id}`} style={{ fontSize: 15, fontWeight: 600, color: color.strong, textDecoration: "none" }}>
-              {job.title}
-            </Link>
-            <Text style={{ fontSize: 14, lineHeight: "20px", color: color.muted, margin: "2px 0 0" }}>
-              <span style={{ color: color.ink }}>{job.company_name}</span>
-              {job.location_raw ? ` · ${job.location_raw}` : ""}
-            </Text>
-            {(remote || pay) && (
-              <Text style={{ margin: "8px 0 0", lineHeight: "20px" }}>
-                {/* The space keeps the tags apart in the plain-text part. */}
-                {pay && <Tag isMono>{pay}</Tag>}{" "}
-                {remote && <Tag tone={remote.tone}>{remote.text}</Tag>}
-              </Text>
-            )}
-          </Section>
-        );
-      })}
+      <JobRows jobs={jobs} origin={origin} />
       <Section style={{ borderTop: `1px solid ${color.line}`, paddingTop: 20 }}>
         <Button href={allUrl}>See all matches</Button>
       </Section>
