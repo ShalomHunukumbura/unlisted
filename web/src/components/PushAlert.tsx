@@ -36,7 +36,7 @@ async function call(
 
 /**
  * "Notify this device" for the search on screen: a phone or desktop
- * notification after each hourly update with anything new. iPhones only allow
+ * notification after each update (every two hours) with anything new. iPhones only allow
  * it once the site is added to the home screen, so they get that hint instead.
  */
 export default function PushAlert({ filters = {}, forYou = false }: { filters?: Record<string, string>; forYou?: boolean }) {

@@ -25,7 +25,7 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import connectors, pay
+from . import archive, connectors, pay
 from .config import settings
 from .db import close_pool, cursor, vacuum_jobs
 from .html import to_text
@@ -39,13 +39,13 @@ log = logging.getLogger(__name__)
 SUSPICIOUS_EMPTY_THRESHOLD = 5
 
 # Tiered schedule for `sync --due`: boards with open jobs are checked every run
-# (hourly), boards with none every few hours. About 40% of boards have nothing
-# from the past week, so this cuts requests without missing much.
+# (every two hours), boards with none every few hours. About 40% of boards have
+# nothing from the past week, so this cuts requests without missing much.
 # A prune this big is followed by a VACUUM, so the writes right after it reuse
 # the space. Normal hourly prunes are a few hundred jobs; autovacuum handles those.
 PRUNE_VACUUM_MIN = 2000
 
-ACTIVE_EVERY = timedelta(minutes=50)   # under an hour, so hourly runs don't skip
+ACTIVE_EVERY = timedelta(minutes=50)   # under the schedule's interval, so no run skips them
 QUIET_EVERY = timedelta(hours=6) - timedelta(minutes=10)
 
 
@@ -448,8 +448,15 @@ def sync_all(only: str | None = None, stale_hours: int | None = None,
     if pruned >= PRUNE_VACUUM_MIN:
         vacuum_jobs()
     results = write_all(fetched, trigger)
+    # The weekly report's copy of the new roles, while the database is awake.
+    try:
+        archived = archive.archive_roles()
+    except Exception:  # noqa: BLE001 - the jobs are written; the next run copies them
+        log.exception("could not copy this week's roles for the report")
+        archived = 0
     t2 = time.monotonic()
     close_pool()
-    log.info("fetched %s boards in %.0fs, wrote in %.0fs; pruned %s jobs older than %s days",
-             len(companies), t1 - t0, t2 - t1, pruned, settings.max_job_age_days)
+    log.info("fetched %s boards in %.0fs, wrote in %.0fs; pruned %s jobs older than %s days; "
+             "copied %s new roles for the weekly report",
+             len(companies), t1 - t0, t2 - t1, pruned, settings.max_job_age_days, archived)
     return results, pruned

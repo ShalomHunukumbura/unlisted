@@ -27,7 +27,7 @@ export type Application = {
   status: Status;
   notes: string;
   applied_at: string;
-  /** Still on Unlisted (jobs leave a week after they're posted). */
+  /** Still on Unlisted (jobs leave three days after they're posted). */
   listed: boolean;
 };
 

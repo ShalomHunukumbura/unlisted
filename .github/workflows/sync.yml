@@ -1,17 +1,18 @@
 name: Sync jobs
 
-# Keeps the public database fresh: every hour, check the boards that are due
-# (those with open jobs every run, quiet ones every ~6 hours), store the past
-# past week of jobs, and prune the rest. Writes to the database in the
-# DATABASE_URL secret (Neon), with raw payloads off so it fits the free tier.
-# The sync downloads everything first and writes in one short burst, so the
-# database is awake for minutes per run, which keeps Neon's free compute safe.
+# Keeps the public database fresh: every two hours, check the boards that are
+# due (those with open jobs every run, quiet ones every ~6 hours), store the
+# past three days of jobs, and prune the rest. Writes to the database in the
+# DATABASE_URL secret (Supabase's session pooler, port 5432: GitHub's runners
+# can't reach the IPv6-only direct address), with raw payloads off to keep it
+# small. The sync downloads everything first and writes in one short burst;
+# the embeddings, alerts and the site's cache refresh follow.
 on:
   schedule:
-    # Hourly at :23, off the busy :00 (GitHub may start it a little late). If
-    # scheduled runs ever stop appearing (e.g. after a repo rename), changing
-    # this line makes GitHub register the schedule again.
-    - cron: "23 * * * *"
+    # Every two hours at :23, off the busy :00 (GitHub may start it a little
+    # late). If scheduled runs ever stop appearing (e.g. after a repo rename),
+    # changing this line makes GitHub register the schedule again.
+    - cron: "23 */2 * * *"
   workflow_dispatch:
     inputs:
       reset_jobs:
@@ -50,12 +51,16 @@ jobs:
         with:
           path: ${{ github.workspace }}/.fastembed
           key: fastembed-all-MiniLM-L6-v2
-      # Deleting jobs frees space only for more jobs: Neon still counts it, so a
-      # new table can't be created at the limit. TRUNCATE hands it back.
+      # Deleting jobs frees space only for more jobs: the database still counts
+      # it, so a new table can't be created at the limit. TRUNCATE hands it back.
       - name: Reset jobs
         if: inputs.reset_jobs
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/deploy/reset-jobs.sql
+      # Also the check that the database can be reached: when it can't (a quota,
+      # a paused project, a wrong secret), this fails in seconds with the reason, and
+      # every step after it that needs the database is skipped.
       - name: Apply migrations
+        id: migrate
         run: MIGRATE_URL="$DATABASE_URL" ./db/migrate.sh
       - name: Backfill pay ranges
         if: inputs.backfill_pay
@@ -68,7 +73,7 @@ jobs:
       # profile can use the new jobs' embeddings. A big backlog (after a reset)
       # is spread over a few runs.
       - name: Embed new jobs
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed
         run: jobsite embed --max-seconds 900
@@ -76,7 +81,7 @@ jobs:
       # The site sends them (the filters live in the web code); this just says
       # the new jobs are in. Skipped until the ALERTS_SECRET secret exists.
       - name: Email alerts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           ALERTS_SECRET: ${{ secrets.ALERTS_SECRET }}
           SITE_URL: ${{ vars.SITE_URL || 'https://findunlisted.link' }}
@@ -84,10 +89,22 @@ jobs:
           if [ -z "$ALERTS_SECRET" ]; then echo "ALERTS_SECRET not set, skipping"; exit 0; fi
           curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $ALERTS_SECRET" \
             "$SITE_URL/api/alerts/send" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The alerts call marked the site's cached data stale. Visit the busiest
+      # pages now, so they refresh while the database is still awake rather
+      # than waking it again later. (Job pages aren't affected; see queries.ts.)
+      - name: Refresh the site's cache
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://findunlisted.link' }}
+        run: |
+          for path in / /remote /remote/anywhere /remote/sri-lanka /companies /locations /roles /blog \
+                      /sitemaps/pages.xml /sitemaps/companies.xml /sitemaps/jobs.xml; do
+            curl -fsS -o /dev/null --max-time 60 "$SITE_URL$path" || echo "could not load $path"
+          done
       # Google finds few job pages on its own within the week they're up. Uses
       # the Indexing API's daily quota; skipped until the secret exists.
       - name: Tell Google about new and closed roles
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           GOOGLE_INDEXING_KEY: ${{ secrets.GOOGLE_INDEXING_KEY }}
           SITE_URL: ${{ vars.SITE_URL || 'https://findunlisted.link' }}
@@ -95,6 +112,6 @@ jobs:
         run: jobsite index-notify | tee -a "$GITHUB_STEP_SUMMARY"
         working-directory: workers
       - name: Summary
-        if: always()
+        if: ${{ always() && steps.migrate.outcome == 'success' }}
         run: jobsite stats | tee -a "$GITHUB_STEP_SUMMARY"
         working-directory: workers

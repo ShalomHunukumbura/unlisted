@@ -88,7 +88,7 @@ export default function AlertSignup({
                 {following ? "Saving…" : "Email me new matches"}
               </button>
               <span className="text-xs text-muted">
-                To the address you&apos;re signed in with, one email after each hourly update. Pause or delete it
+                To the address you&apos;re signed in with, one email after each update (every two hours). Pause or delete it
                 from your account.
               </span>
               {followed && !followed.ok && <p role="alert" className="basis-full text-sm text-yellow-ink">{followed.message}</p>}
@@ -128,7 +128,7 @@ export default function AlertSignup({
               </form>
               {result && !result.ok && <p role="alert" className="mt-2 text-sm text-yellow-ink">{result.message}</p>}
               <p className="mt-2 text-xs text-muted">
-                One email after each hourly update with anything new. Confirm by email first; every email has an
+                One email after each update (every two hours) with anything new. Confirm by email first; every email has an
                 unsubscribe link.
               </p>
             </>

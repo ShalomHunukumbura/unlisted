@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Jobs by country",
-  description: "Roles from company career pages, posted in the past week, by the country they're in.",
+  description: "Roles from company career pages, posted in the past 3 days, by the country they're in.",
   alternates: { canonical: "/locations" },
 };
 

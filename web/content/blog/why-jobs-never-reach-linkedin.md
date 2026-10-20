@@ -37,14 +37,14 @@ The result is a large number of real, open roles that only exist on the company'
 
 Applications are read most carefully in the first days after a role opens. After a week or two, many popular roles have hundreds of applicants, and new ones mostly sit in a pile.
 
-That's why Unlisted only keeps roles from the past week. Older roles aren't useless, but your time is better spent on the ones where your application will actually be read.
+That's why Unlisted only keeps roles from the past three days. Older roles aren't useless, but your time is better spent on the ones where your application will actually be read.
 
 ## How Unlisted searches the source
 
 Greenhouse, Ashby and Lever all publish each company's board in a form software can read. Unlisted uses that:
 
 1. **It keeps a list of more than 7,700 companies** and which system each one uses.
-2. **Every hour, it reads the boards**, picks up new roles and notices closed ones.
+2. **Every two hours, it reads the boards**, picks up new roles and notices closed ones.
 3. **It cleans up each role**: where the job can be done from (remote anywhere, a region, or one country), how much experience it asks for, and the pay, when the posting states it.
 4. **Every listing links to the employer's own posting.** You apply on the company's page, not through Unlisted.
 
@@ -54,7 +54,7 @@ Each job page also checks, live, that the role is still on the company's board, 
 
 - **Search everything at once.** The [main search](/) covers every board, with filters for remote, country, experience and pay.
 - **Look at companies, not just roles.** Each company has a page with all its open roles, such as the [companies hiring this week](/companies).
-- **Follow searches.** Save a search and get new matches by email or notification after each hourly update.
+- **Follow searches.** Save a search and get new matches by email or notification after each update.
 - **Let it rank for you.** [For you](/for-you) orders every role by the roles you want, your skills and, if you add it, your CV.
 
 Job boards are still useful. But the careers page is where hiring actually starts, and for many roles it's the only place they exist.

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import JobRow from "@/components/JobRow";
 import ListMemory from "@/components/ListMemory";
-import { countRoles, listJobsAlwaysCached, type Filters } from "@/lib/queries";
+import { MAX_AGE_DAYS, countRoles, listJobs, type Filters } from "@/lib/queries";
 import type { Landing } from "@/lib/seo";
 
 const n = (value: number) => value.toLocaleString("en-US");
@@ -36,7 +36,7 @@ export default async function LandingPage({
   /** Under the intro, e.g. Follow on a company's page. */
   actions?: React.ReactNode;
 }) {
-  const [{ jobs }, total] = await Promise.all([listJobsAlwaysCached(landing.filters), countRoles(landing.filters)]);
+  const [{ jobs }, total] = await Promise.all([listJobs(landing.filters), countRoles(landing.filters)]);
   const all = searchHref(landing.filters);
 
   return (
@@ -57,7 +57,7 @@ export default async function LandingPage({
         <p className="mt-3 max-w-2xl text-pretty text-[15px] leading-relaxed text-ink">
           {total > 0
             ? <>{landing.intro.replace("{n}", n(total))} Every listing links to the employer&apos;s own posting.</>
-            : "Nothing open from the past week. Unlisted only keeps a week of roles, and new ones come in every hour."}
+            : `Nothing open from the past ${MAX_AGE_DAYS} days. Unlisted only keeps ${MAX_AGE_DAYS} days of roles, and new ones come in every two hours.`}
         </p>
         {actions && <div className="mt-5">{actions}</div>}
       </header>

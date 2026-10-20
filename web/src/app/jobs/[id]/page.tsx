@@ -7,7 +7,7 @@ import BackToList from "@/components/BackToList";
 import LiveCheck from "@/components/LiveCheck";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { expLabel } from "@/lib/experience";
-import { getJob, sameRole } from "@/lib/queries";
+import { MAX_AGE_DAYS, getJob, sameRole, type Job } from "@/lib/queries";
 import { countryLanding, jobPostingData, jsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +20,20 @@ const ATS_LABEL: Record<string, string> = {
   workday: "Workday",
 };
 
+const DAY = 86_400_000;
+
+/**
+ * Pruned from the database once it's MAX_AGE_DAYS old. The cached copy can
+ * outlive that by a few hours; the page goes when the role leaves the lists.
+ */
+function listed(job: Job | null): job is Job {
+  const at = job?.posted_at ?? job?.first_seen_at;
+  return !!job && (!at || Date.now() - new Date(at).getTime() < MAX_AGE_DAYS * DAY);
+}
+
 export async function generateMetadata(props: PageProps<'/jobs/[id]'>): Promise<Metadata> {
   const job = await getJob((await props.params).id);
-  if (!job) return {};
+  if (!listed(job)) return {};
   // "Linear · Remote, anywhere · $160K–$200K · Posted 3 Oct 2026. Apply on the
   // company's own careers page." Unique per job, which is what search results show.
   // Remote: where from ("Remote · anywhere"), which says more than the
@@ -48,8 +59,6 @@ export async function generateMetadata(props: PageProps<'/jobs/[id]'>): Promise<
     openGraph: { title, description, type: "website" },
   };
 }
-
-const DAY = 86_400_000;
 
 function shortDate(iso: string, withTime = false): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -105,7 +114,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
   const { id } = await props.params;
   const [job, others] = await Promise.all([getJob(id), sameRole(id)]);
-  if (!job) notFound();
+  if (!listed(job)) notFound();
 
   const remote = remoteLabel(job);
   const exp = expLabel(job.exp_min_years, job.exp_max_years);

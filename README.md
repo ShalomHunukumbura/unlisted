@@ -10,7 +10,7 @@ hosted by an applicant tracking system (Greenhouse, Ashby, Lever), and that's wh
 a role appears first. Some are cross-posted to LinkedIn and job boards later; many
 never are, and you only find them if you already know the company. Unlisted reads
 the career pages directly; it doesn't check whether a role is also on other sites. This pulls every one of those boards into a single
-searchable list, keeps only the **past week**, and links each job straight to
+searchable list, keeps only the **past three days**, and links each job straight to
 the employer's own apply page.
 
 ![Remote jobs open to Sri Lanka, posted in the past week](docs/screenshot.png)
@@ -31,10 +31,10 @@ the employer's own apply page.
   about strong new matches, and open the same profile on another device with an
   emailed link. No account.
 - **Follow a search** by email or RSS. "Email me new matches" saves the current
-  filters; after confirming, you get one email after each hourly update that
+  filters; after confirming, you get one email after each update (every two hours) that
   found something new. Every search also has a feed at `/feed?...`.
 - **Only what's still worth applying to.** Of 227,719 open jobs across all boards on
-  the first full sync, 82% were posted over two weeks ago. Only the past week is stored.
+  the first full sync, 82% were posted over two weeks ago. Only the past three days are stored.
 
 It's a discovery layer, not an application proxy: no accounts, no tracking, and
 every listing links to the real posting. Each job page checks live with the
@@ -219,20 +219,26 @@ expensive and spent 2 s compiling it).
 `httpOnly` cookie. "Use on another device" emails a single-use, 30-minute link;
 opening it is a button press, so mail scanners can't use it up. "Not for me"
 hides a role (all its postings); saved roles keep a copy of the title and link,
-since jobs are deleted after a week. "Notify this device" on the feed sends a push
+since jobs are deleted after three days. "Notify this device" on the feed sends a push
 notification after each sync when a new role scores 3 or more. Profiles unused
 for six months are deleted.
 
 ## Design decisions worth knowing
 
-**Only the past week.** Within a week or two most roles have hundreds of
+**Only the past three days.** Within days most roles have hundreds of
 applicants, so older ones are noise. Sync skips jobs posted more than
-`MAX_JOB_AGE_DAYS` (default 7; it was 14 until two weeks of every board outgrew
-Neon's free 512 MB) ago, and every sync ends with a prune that deletes jobs that have
-aged out since. Age is `posted_at`, or `first_seen_at` when the ATS gives no
-date. This also keeps the database small (1.16 GB for every open job vs. a
-fraction of that for one week), and the web app applies the same window so
-pages are right between syncs.
+`MAX_JOB_AGE_DAYS` (default 3; it was 14, then 7, each cut to keep the free
+database small and its compute short) ago, and every sync ends with a prune that
+deletes jobs that have aged out since. Age is `posted_at`, or `first_seen_at`
+when the ATS gives no date. This also keeps the database small (1.16 GB for every
+open job vs. a fraction of that for three days), and the web app applies the same
+window so pages are right between syncs.
+
+**The weekly report keeps its own copy.** A week's roles are mostly gone from
+`jobs` before the week ends, so after each sync `workers/src/jobsite/archive.py`
+copies the new roles into `report_roles` (migration 0019): one row per role,
+with the report's skills found while the description is still there, about
+5 MB a week, three weeks kept. The report and the blog drafts read that.
 
 **Closed, not deleted, within the window.** A job missing from a sync is stamped
 `closed_at`; if it reappears, the upsert reopens it.
@@ -263,25 +269,46 @@ partial index.
 The public copy runs on free tiers, with the same schema and sync code as local:
 
 ```
-GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──reads── Vercel (Next.js, read-only)
+GitHub Actions (every 2 h) ──sync──> Supabase Postgres <──cache misses── Vercel data cache <── Next.js (read-only)
 ```
 
-- **Database:** Neon's free tier caps a project at 512 MB. Two weeks of every board
-  was about 390 MB freshly loaded (raw ATS payloads left out with `STORE_RAW=false`,
-  description words indexed without positions, sync logs kept for 6 hours; see
-  migrations 0006 and 0008), but updates leave old row versions behind that
-  Postgres reuses and never hands back, and it reached 489 MB in a day. Hence one
-  week, about half the jobs. A schema change that
-  rewrites the jobs table needs `db/deploy/reset-jobs.sql` first (it refills on the
-  next sync).
-- **Sync:** `.github/workflows/sync.yml` runs every hour (at :23, sometimes a little
-  late: GitHub schedules are best-effort). `jobsite sync --due` checks boards with open
-  jobs every run and quiet boards every ~6 hours, about 5,200 of 7,733 per run. It
-  downloads everything with no database connection open (~15-20 min, set by the
-  per-ATS rate limits), then writes in one burst of under a minute, so Neon is awake
-  for minutes per run and the free compute allowance holds. Secret: `DATABASE_URL`.
-  GitHub pauses scheduled workflows after 60 days without a commit, so it needs
-  re-enabling after a quiet spell.
+- **Database:** Supabase's free plan: 500 MB, a small always-on server, 5 GB of
+  data out a month, paused after a week with no activity (the sync keeps it
+  active). It was Neon until October 2026, when the free plan's 100 compute-hours
+  ran out on the 20th: every page queried Postgres, so visitors and crawlers
+  kept it awake all day. `db/deploy/move-database.sh` did the move.
+  - **Size.** Two weeks of every board was about 390 MB freshly loaded (raw ATS
+    payloads left out with `STORE_RAW=false`, description words indexed without
+    positions, sync logs kept for 6 hours; see migrations 0006 and 0008), but
+    updates leave old row versions behind that Postgres reuses and never hands
+    back, and it reached 489 MB in a day. Hence one week, then three days.
+    `jobsite stats` prints the size. A schema change that rewrites the jobs table
+    needs `db/deploy/reset-jobs.sql` first (it refills on the next sync).
+  - **Data out.** Every public page reads through Vercel's data cache
+    (`unstable_cache` in `web/src/lib/queries.ts`, `seo.ts`, `reports.ts`). The
+    data is tagged `synced`; after each sync `/api/alerts/send` marks it stale,
+    the workflow loads the busiest pages so they refresh straight away, and
+    anything else refreshes on its next visit (served the old copy meanwhile).
+    Job pages aren't tagged: they're cached for 6 hours each, so a crawler going
+    through thousands of them doesn't read each description again after every
+    sync. `jobsite embed` reads only the start of each description.
+  - **Connections.** Supabase's direct address is IPv6 only. GitHub Actions uses
+    the session pooler (port 5432; psycopg's prepared statements need it), and
+    Vercel the transaction pooler (port 6543, meant for serverless), with
+    `?uselibpqcompat=true&sslmode=require`: encrypted, like libpq's `require`.
+    Plain `sslmode=require` makes node-postgres verify the certificate against
+    public CAs, which Supabase's isn't signed by.
+  - **The Data API is off** (Supabase publishes the public schema over REST
+    otherwise), and migration 0020 turns on row level security for every table
+    as a second lock. New tables need `ENABLE ROW LEVEL SECURITY` too.
+- **Sync:** `.github/workflows/sync.yml` runs every two hours (at :23, sometimes a
+  little late: GitHub schedules are best-effort). `jobsite sync --due` checks boards
+  with open jobs every run and quiet boards every ~6 hours. It downloads everything
+  with no database connection open (~15-20 min, set by the per-ATS rate limits), then
+  writes in one burst of under a minute. Secret: `DATABASE_URL`. If the database
+  can't be reached, the migrations step fails with the reason and the steps that
+  need the database are skipped. GitHub pauses scheduled workflows after 60 days
+  without a commit, so it needs re-enabling after a quiet spell.
 - **Site:** Vercel, root directory `web`, with `DATABASE_URL` and
   `JOBSITE_READ_ONLY=1`. Read-only mode returns 404 for the admin page and its API,
   which run the CLI on the server and have no auth.
@@ -300,7 +327,7 @@ GitHub Actions (hourly) ──sync──> Neon Postgres (free, 512 MB) <──re
   `npx web-push generate-vapid-keys` (redeploy after setting them: the public
   key is built into the page). iPhones only get push once the site is on the
   home screen.
-- **For you:** migration 0012 enables pgvector (Neon has it). The workflow
+- **For you:** migration 0012 enables pgvector (Supabase has it). The workflow
   installs `workers[embed]`, caches the model, and runs `jobsite embed` after
   each sync (at most 15 minutes, so a refilled table is embedded over a couple
   of runs). Sign-in links use the same Gmail settings as alerts.
@@ -327,14 +354,14 @@ make push-companies DEPLOY_URL="postgresql://..."
   `/locations/<country>`, `/companies/<slug>` (from migration 0013's
   `companies.slug`) and an A to Z `/companies`. Each has its own title,
   description, intro with live counts, the newest roles, and links to related
-  pages. Pages with nothing this week (or a country with under 5 roles) say
+  pages. Pages with nothing right now (or a country with under 5 roles) say
   `noindex`.
 - **What stays out:** filtered searches (`/?q=…`, thousands of near-duplicates)
   are `noindex, follow` with `/` as canonical; `/for-you`, alert links, the API
   and admin are disallowed in `robots.txt`.
 - **`/sitemap.xml`** lists every landing page, company and open role (~10,000
-  URLs), rebuilt from hourly-cached queries, so a role leaves it when it leaves
-  the site.
+  URLs), rebuilt from cached queries after each sync, so a role leaves it when
+  it leaves the site.
 - **Site name:** the home page's `WebSite` data names it "Unlisted" (with
   "findunlisted" as an alternate), so results show the name, not the domain.
 
@@ -346,9 +373,9 @@ make push-companies DEPLOY_URL="postgresql://..."
 - **The report.** After every sync, `/api/alerts/send` also saves the current
   week's numbers into `weekly_reports` (migration 0014): roles posted, remote
   share, roles open to Sri Lanka, roles per day, who posted most, top titles
-  and skills, pay ranges by title, top countries. Jobs are deleted a week after
-  they're posted, so this is the only way to keep a week's numbers; a finished
-  week is never rewritten. On Monday the week appears as a post, with optional
+  and skills, pay ranges by title, top countries, worked out from the week's
+  copy of its roles (`report_roles`, see above); a finished week is never
+  rewritten. On Monday the week appears as a post, with optional
   words from `web/content/reports/<monday>.md`.
 - **Charts** are plain HTML in one clay hue (`--chart`, its own so it never
   reads as a remote tag), checked with a palette validator in light and dark;
@@ -413,7 +440,7 @@ DKIM, DMARC and content.
 jobsite discover --seeds ../db/seed/companies.txt
 jobsite add-url https://jobs.ashbyhq.com/linear     # or just: jobsite add-url Linear
 jobsite import-boards db/seed/ashby_boards.txt --ats ashby
-jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 7 days
+jobsite sync [--company X] [--stale-hours 6]      # skips and prunes jobs older than 3 days
 jobsite prune                                      # just the prune
 jobsite backfill-pay                               # one-off: pay for jobs stored before pay.py
 jobsite embed                                      # embeddings for "For you" (pip install -e "workers[embed]")
@@ -424,7 +451,7 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 166 tests (connector fixtures under workers/tests/fixtures; the age
+make test    # 178 tests (connector fixtures under workers/tests/fixtures; the age
              # test uses the dev database and is skipped when it's not running)
 ```
 
@@ -438,5 +465,5 @@ These are public, documented, unauthenticated job-board APIs, serving data
 companies are paying to broadcast, and every listing links back to the employer's
 own apply page. The client sends a contactable User-Agent, rate-limits per ATS
 (5 req/s), honors `Retry-After`, backs off on 429, and syncs every 6 hours locally
-and hourly for the public copy (quiet boards every ~6 hours), rather than constantly. Undocumented endpoints (Workday et al.) are deliberately
+and every two hours for the public copy (quiet boards every ~6 hours), rather than constantly. Undocumented endpoints (Workday et al.) are deliberately
 deprioritized and would get a lower limit.

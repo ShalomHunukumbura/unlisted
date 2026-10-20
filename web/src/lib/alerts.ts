@@ -195,7 +195,7 @@ export async function follow(email: string, filters: Filters): Promise<Subscribe
                                  THEN now() ELSE alert_subscriptions.checked_until END`,
     [email, JSON.stringify(filters), randomBytes(24).toString("base64url")],
   );
-  return { ok: true, message: `On: new matches for this search go to ${email} after each hourly update.` };
+  return { ok: true, message: `On: new matches for this search go to ${email} after each update (every two hours).` };
 }
 
 /** Following a company is an alert for just that company: new roles there, by email. */

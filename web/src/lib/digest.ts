@@ -10,10 +10,10 @@ import { matchJobs } from "./match";
 import { profileById } from "./profile";
 
 /**
- * The weekly email: an account's best "For you" matches from the past week,
- * for people who switched it on. Sent by the hourly run to whoever's week is
- * up, so the first one arrives within the hour of switching it on and the
- * rest a week apart.
+ * The weekly email: an account's best "For you" matches (from the past three
+ * days, all Unlisted keeps), for people who switched it on. Sent by the run
+ * after each sync to whoever's week is up, so the first one arrives within
+ * two hours of switching it on and the rest a week apart.
  */
 const ROLES = 10;
 const PER_RUN = 25;
@@ -56,7 +56,7 @@ async function appliedTo(profileId: string): Promise<Set<string>> {
 /**
  * Called after the alerts, with what's left of the run. A profile that
  * couldn't be emailed (the daily cap, the clock, an error) is tried again
- * next hour; one with nothing to say waits a week.
+ * next run; one with nothing to say waits a week.
  */
 export async function sendDigests(origin: string, deadline: number) {
   const report = { due: 0, emailed: 0, quiet: 0, deferred: 0, failed: 0 };

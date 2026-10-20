@@ -19,12 +19,12 @@ export async function generateMetadata(props: PageProps<"/companies">): Promise<
   return letter
     ? {
         title: `Companies hiring: ${letter === "#" ? "0 to 9" : letter}`,
-        description: `Companies starting with ${letter === "#" ? "a number" : letter} with a role posted on their careers page in the past week.`,
+        description: `Companies starting with ${letter === "#" ? "a number" : letter} with a role posted on their careers page in the past 3 days.`,
         alternates: { canonical: `/companies?letter=${param(letter)}` },
       }
     : {
         title: "Companies hiring",
-        description: "Every company with a role posted on its careers page in the past week, A to Z.",
+        description: "Every company with a role posted on its careers page in the past 3 days, A to Z.",
         alternates: { canonical: "/companies" },
       };
 }
@@ -48,7 +48,7 @@ export default async function Companies(props: PageProps<"/companies">) {
         {letter ? `Companies: ${letter === "#" ? "0 to 9" : letter}` : "Companies hiring"}
       </h1>
       <p className="mt-3 text-[15px] text-ink">
-        {companies.length.toLocaleString("en-US")} companies posted a role on their careers page in the past week.
+        {companies.length.toLocaleString("en-US")} companies posted a role on their careers page in the past 3 days.
       </p>
       <nav aria-label="Companies by letter" className="mt-6 flex flex-wrap gap-1">
         {LETTERS.map((l) =>
@@ -67,7 +67,7 @@ export default async function Companies(props: PageProps<"/companies">) {
         )}
       </nav>
       <h2 className="mt-10 border-b border-line pb-2 text-sm font-medium text-ink-strong">
-        {letter ? `${shown.length} companies` : "Hiring the most this week"}
+        {letter ? `${shown.length} companies` : "Hiring the most right now"}
       </h2>
       <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-3">
         {shown.map((c) => (

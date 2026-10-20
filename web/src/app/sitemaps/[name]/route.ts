@@ -1,6 +1,6 @@
 import { SITEMAPS, urlset } from "@/lib/sitemap";
 
-// Built on request from hourly-cached queries: the jobs change every sync.
+// Built on request from cached queries, refreshed after each sync.
 export const dynamic = "force-dynamic";
 
 /** /sitemaps/pages.xml, /sitemaps/companies.xml and /sitemaps/jobs.xml. */

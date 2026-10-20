@@ -72,7 +72,7 @@ async function Saved({ profile }: { profile: Profile }) {
   if (!profile.saved.length) {
     return <p className="py-16 text-center text-sm text-muted">Roles you save show up here, even after they leave the feed.</p>;
   }
-  // Jobs leave Unlisted a week after they're posted; the employer's link still works for a while.
+  // Jobs leave Unlisted three days after they're posted; the employer's link still works for a while.
   const listed = new Set(
     (
       await query<{ id: string }>(`SELECT id::text FROM jobs WHERE id = ANY($1::bigint[]) AND closed_at IS NULL`, [

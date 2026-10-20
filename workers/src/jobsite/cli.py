@@ -145,7 +145,7 @@ def sync_cmd(
     stale_hours: int = typer.Option(None, help="Only companies not synced in N hours"),
     limit: int = typer.Option(None, help="Sync at most N companies (never-synced first)"),
     due: bool = typer.Option(False, "--due", help="Only boards due a check: those with open jobs "
-                             "after ~1h, quiet ones after ~6h (for an hourly schedule)"),
+                             "every run, quiet ones after ~6h (for a schedule of an hour or two)"),
     workers: int = typer.Option(4),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
@@ -170,7 +170,7 @@ def sync_cmd(
 
 @app.command("prune")
 def prune_cmd() -> None:
-    """Delete jobs older than MAX_JOB_AGE_DAYS (default 7). Sync does this too."""
+    """Delete jobs older than MAX_JOB_AGE_DAYS (default 3). Sync does this too."""
     from .config import settings
 
     pruned = sync.prune()
@@ -270,7 +270,7 @@ def stats() -> None:
         described = cur.fetchone()["n"]
         cur.execute("SELECT count(*) n FROM jobs WHERE closed_at IS NULL AND comp_period IS NOT NULL")
         with_pay = cur.fetchone()["n"]
-        # Neon's free tier stops writes at 512 MB; this is the figure it counts.
+        # Supabase's free plan allows a 500 MB database; this is the figure to watch.
         cur.execute("SELECT pg_database_size(current_database()) / 1048576 AS mb")
         size_mb = cur.fetchone()["mb"]
         cur.execute(

@@ -12,7 +12,7 @@ function landingFor(slug: string, name: string): Landing {
   return {
     path: `/companies/${slug}`,
     title: `${name} jobs`,
-    intro: `{n} open roles at ${name}, straight from its careers page, posted in the past week.`,
+    intro: `{n} open roles at ${name}, straight from its careers page, posted in the past 3 days.`,
     filters: { companySlug: slug },
   };
 }
@@ -27,7 +27,7 @@ export async function generateMetadata(props: PageProps<"/companies/[slug]">): P
     title: `${company.name} jobs and careers`,
     description: landing.intro.replace("{n}", total.toLocaleString("en-US")),
     alternates: { canonical: landing.path },
-    // No open roles this week: reachable, but nothing worth indexing.
+    // No open roles right now: reachable, but nothing worth indexing.
     ...(total === 0 && { robots: { index: false } }),
   };
 }

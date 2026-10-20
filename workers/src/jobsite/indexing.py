@@ -1,7 +1,7 @@
 """Tell Google about new and closed job pages through its Indexing API.
 
-A job is up for a week, and Google takes longer than that to find most pages
-in a sitemap on its own. The Indexing API exists for job postings: one request
+A job is up for three days, and Google takes longer than that to find most
+pages in a sitemap on its own. The Indexing API exists for job postings: one request
 says "this page is new" (URL_UPDATED) or "this page is gone" (URL_DELETED).
 
 The quota is small (200 requests a day by default), so each run spends what's

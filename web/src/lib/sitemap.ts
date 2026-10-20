@@ -13,7 +13,7 @@ import {
 /**
  * The sitemaps. /sitemap.xml is an index of three files, so Search Console
  * reports each kind of page on its own: the pages that last (landing pages and
- * the blog), the companies, and the jobs, which are only up for a week.
+ * the blog), the companies, and the jobs, which are only up for three days.
  * ~22,000 URLs in all; one file may hold 50,000.
  */
 
@@ -57,7 +57,7 @@ const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").rep
 const loc = (path: string) => `<loc>${escape(SITE_URL + path)}</loc>`;
 
 /**
- * Built from hourly data in a few seconds: let the CDN keep it for the hour,
+ * Built from cached data in a few seconds: let the CDN keep it for the hour,
  * so search engines get it instantly and it's built once.
  */
 function xml(body: string): Response {

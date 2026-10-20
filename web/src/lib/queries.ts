@@ -67,11 +67,11 @@ export const MAX_PAGES = 20;
 export const pageCount = (pages?: string) => Math.min(MAX_PAGES, Math.max(1, Math.floor(Number(pages)) || 1));
 
 /**
- * Only jobs from the past week are listed: older roles have usually had
+ * Only jobs from the past three days are listed: older roles have usually had
  * hundreds of applicants. Matches the workers' MAX_JOB_AGE_DAYS, which also
  * deletes them, so this just keeps pages right between syncs.
  */
-export const MAX_AGE_DAYS = 7;
+export const MAX_AGE_DAYS = 3;
 export const FRESH = `COALESCE(j.posted_at, j.first_seen_at) > now() - interval '${MAX_AGE_DAYS} days'`;
 
 /** Filter buckets -> [minYears, maxYears]; null max = open ended. */
@@ -190,11 +190,27 @@ export function iso(value: unknown): string | null {
   return value instanceof Date ? value.toISOString() : (value as string | null);
 }
 
-// The data changes at most hourly (the sync), so these are cached across requests
-// and instances; a count up to 30 minutes old is fine. Bump the key suffix
-// when a query's shape changes.
-const FACETS_TTL = 1800;
-const LIST_TTL = 600;
+/**
+ * Pages are served from Vercel's data cache, not the database, wherever they
+ * can be: the database is billed for every minute it's awake, and a visitor or
+ * crawler every few minutes would keep it awake all day. The data only changes
+ * when the sync runs (every two hours), and the sync's last step,
+ * /api/alerts/send, marks everything tagged SYNCED stale; each entry is then
+ * refreshed by the next request that wants it, which gets the old one
+ * meanwhile. SYNCED_TTL is only a backstop for when that call doesn't come.
+ * Bump a key suffix when a query's shape changes.
+ */
+export const SYNCED = "synced";
+export const SYNCED_TTL = 6 * 3600;
+const synced = { tags: [SYNCED], revalidate: SYNCED_TTL };
+
+/**
+ * One job's page. Not refreshed by the sync, since a posting hardly changes:
+ * thousands of job pages, mostly visited once by a crawler, would each wake
+ * the database again. A closed role can look open for up to this long; its
+ * page checks the employer's board live anyway.
+ */
+const JOB_TTL = 6 * 3600;
 
 async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: string | null }> {
   const params: unknown[] = [];
@@ -253,7 +269,7 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
   return { jobs, nextCursor };
 }
 
-const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v2"], { revalidate: LIST_TTL });
+const listJobsCached = unstable_cache(listJobsUncached, ["jobs-v2"], synced);
 
 /** How many roles (company + title, as the list shows them) match: the landing pages' intro. */
 export const countRoles = unstable_cache(
@@ -268,16 +284,14 @@ export const countRoles = unstable_cache(
     return n;
   },
   ["count-roles-v1"],
-  { revalidate: LIST_TTL },
+  synced,
 );
 
-/** Text searches aren't cached: endless one-off combinations would crowd out the rest. */
-export function listJobs(f: Filters) {
-  return f.q ? listJobsUncached(f) : listJobsCached(f);
-}
-
-/** For a fixed set of searches (the landing pages), text searches included. */
-export const listJobsAlwaysCached = listJobsCached;
+/**
+ * Text searches are cached too: one-off ones take cache space, but each would
+ * otherwise wake the database.
+ */
+export const listJobs = listJobsCached;
 
 /** The filters an alert can save: the home page's, minus paging and "posted within". */
 export const ALERT_FILTER_KEYS = ["q", "remote", "country", "company", "department", "exp", "pay"] as const;
@@ -316,9 +330,14 @@ export async function newMatches(f: Filters, after: string, until: string, limit
   return rows.map((r) => ({ ...r, posted_at: iso(r.posted_at), first_seen_at: iso(r.first_seen_at)! }));
 }
 
+const isJobId = (id: string) => /^\d{1,18}$/.test(id); // not a bigint: Postgres would throw
+
 // cache(): the job page and its generateMetadata both ask for the same job.
 export const getJob = cache(async function getJob(id: string): Promise<Job | null> {
-  if (!/^\d{1,18}$/.test(id)) return null; // not a bigint: Postgres would throw
+  return isJobId(id) ? getJobCached(id) : null;
+});
+
+const getJobCached = unstable_cache(async function getJobUncached(id: string): Promise<Job | null> {
   const rows = await query<Job>(
     `SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
             j.department, j.location_raw, j.locations, j.country, j.region,
@@ -342,10 +361,11 @@ export const getJob = cache(async function getJob(id: string): Promise<Job | nul
         board_checked_before: iso(job.board_checked_before),
       }
     : null;
-});
+}, ["job-v1"], { revalidate: JOB_TTL });
 
 /** Other open postings of the same role (same company and title), e.g. other cities. */
-export async function sameRole(id: string) {
+export const sameRole = unstable_cache(async (id: string) => {
+  if (!isJobId(id)) return [];
   return (
     await query<{ id: string; location_raw: string | null; posted_at: string | null }>(
       `SELECT s.id::text, s.location_raw, s.posted_at
@@ -357,10 +377,10 @@ export async function sameRole(id: string) {
       [id],
     )
   ).map((s) => ({ ...s, posted_at: iso(s.posted_at) }));
-}
+}, ["same-role-v1"], { revalidate: JOB_TTL });
 
 /**
- * When the hourly sync last finished a board without errors. Shown on the home
+ * When the sync last finished a board without errors. Shown on the home
  * page, so a stalled sync is visible to everyone, including me.
  */
 async function lastSyncUncached(): Promise<string | null> {
@@ -370,11 +390,11 @@ async function lastSyncUncached(): Promise<string | null> {
   return iso(rows[0]?.at ?? null);
 }
 
-export const lastSync = unstable_cache(lastSyncUncached, ["last-sync-v1"], { revalidate: 60 });
+export const lastSync = unstable_cache(lastSyncUncached, ["last-sync-v1"], synced);
 
 /** What the live "still open?" check needs to find the posting on its ATS. */
-export async function getJobRef(id: string) {
-  if (!/^\d{1,18}$/.test(id)) return null;
+export const getJobRef = unstable_cache(async (id: string) => {
+  if (!isJobId(id)) return null;
   const rows = await query<{
     ats: string;
     board_token: string;
@@ -388,7 +408,7 @@ export async function getJobRef(id: string) {
     [id],
   );
   return rows[0] ?? null;
-}
+}, ["job-ref-v1"], { revalidate: JOB_TTL });
 
 async function facetsUncached() {
     const [countries, departments, totals] = await Promise.all([
@@ -412,7 +432,7 @@ async function facetsUncached() {
     return { countries, departments, totals: totals[0] };
 }
 
-export const facets = unstable_cache(facetsUncached, ["facets-v2"], { revalidate: FACETS_TTL });
+export const facets = unstable_cache(facetsUncached, ["facets-v2"], synced);
 
 /**
  * Every company with an open role, most jobs first. Thousands of names, so the
@@ -425,22 +445,23 @@ async function companyOptionsUncached() {
   );
 }
 
-export const companyOptions = unstable_cache(companyOptionsUncached, ["company-options-v1"], {
-  revalidate: FACETS_TTL,
-});
+export const companyOptions = unstable_cache(companyOptionsUncached, ["company-options-v1"], synced);
 
 /**
- * Uncached and cheap (stops at the first row): is there anything to show?
- * False while the database is being refilled, which shows the "refreshing"
- * card. It also lets the page refuse a cached empty answer once jobs are back:
- * the caches above can hold "nothing" for up to 30 minutes after a refill.
+ * Is there anything to show? False while the database is being refilled,
+ * which shows the "refreshing" card. Cached like the rest: the sync that
+ * refills the table also marks this stale.
  */
-export async function hasOpenJobs(): Promise<boolean> {
-  const rows = await query<{ any: boolean }>(
-    `SELECT EXISTS (SELECT 1 FROM jobs j WHERE j.closed_at IS NULL AND ${FRESH}) AS any`,
-  );
-  return rows[0]?.any ?? false;
-}
+export const hasOpenJobs = unstable_cache(
+  async (): Promise<boolean> => {
+    const rows = await query<{ any: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM jobs j WHERE j.closed_at IS NULL AND ${FRESH}) AS any`,
+    );
+    return rows[0]?.any ?? false;
+  },
+  ["has-open-jobs-v1"],
+  synced,
+);
 
 /** The uncached versions, for when a cached empty answer is known to be stale. */
 export const fresh = { facets: facetsUncached, listJobs: listJobsUncached, companyOptions: companyOptionsUncached };

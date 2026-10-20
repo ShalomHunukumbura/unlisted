@@ -75,7 +75,7 @@ export async function profileByToken(token: string | undefined): Promise<Profile
   return fromRow(row);
 }
 
-/** For the hourly notifications: doesn't count as a visit. */
+/** For the notifications after each sync: doesn't count as a visit. */
 export async function profileById(id: string): Promise<Profile | null> {
   const [row] = await query<Row>(`SELECT ${COLUMNS} FROM profiles WHERE id = $1`, [id]);
   return row ? fromRow(row) : null;
@@ -239,7 +239,7 @@ export async function actOnJob(profile: Profile, id: string, action: JobAction):
   }
 }
 
-/** Run with the hourly alerts: profiles nobody has opened in six months, and old sign-in links. */
+/** Run with the alerts after each sync: profiles nobody has opened in six months, and old sign-in links. */
 export async function cleanUpProfiles() {
   await query(`DELETE FROM profiles WHERE last_seen_at < now() - interval '180 days'`);
   await query(`DELETE FROM profile_logins WHERE created_at < now() - interval '1 day'`);

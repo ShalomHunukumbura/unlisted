@@ -11,7 +11,7 @@ function why(job: Match): string | null {
   return hits.length ? `Matches ${hits.join(", ")}` : null;
 }
 
-/** Once a week: the best "For you" matches from the past week, best fit first. */
+/** Once a week: the best "For you" matches from the past three days, best fit first. */
 export default function DigestEmail({
   jobs,
   origin,
@@ -40,7 +40,7 @@ export default function DigestEmail({
         Your best matches this week
       </Heading>
       <Text style={{ fontSize: 15, lineHeight: "24px", color: color.ink, margin: "0 0 10px" }}>
-        {count} from the past week, best fit first, ranked by the roles you want and your skills.
+        {count} from the past three days, best fit first, ranked by the roles you want and your skills.
       </Text>
       <JobRows jobs={jobs} origin={origin} note={why} />
       <Section style={{ borderTop: `1px solid ${color.line}`, paddingTop: 20 }}>

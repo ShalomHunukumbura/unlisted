@@ -30,8 +30,8 @@ export const dynamic = "force-dynamic";
 
 const n = (value: string | number) => Number(value).toLocaleString("en-US");
 
-// The sync runs hourly; well past that, say so rather than look fresh.
-const STALE_AFTER_MS = 3 * 3_600_000;
+// The sync runs every two hours; well past that, say so rather than look fresh.
+const STALE_AFTER_MS = 5 * 3_600_000;
 const isStale = (iso: string) => Date.now() - new Date(iso).getTime() > STALE_AFTER_MS;
 
 /** The current filters as a query string, without paging. */
@@ -56,7 +56,7 @@ export async function generateMetadata(props: PageProps<'/'>): Promise<Metadata>
   };
 }
 
-/** Live status: a dot that's green while the hourly sync is keeping up. */
+/** Live status: a dot that's green while the sync is keeping up. */
 function Status({ syncedAt, open, remote }: { syncedAt: string | null; open: string; remote: string }) {
   const stale = syncedAt ? isStale(syncedAt) : false;
   return (
@@ -64,7 +64,7 @@ function Status({ syncedAt, open, remote }: { syncedAt: string | null; open: str
       {syncedAt && (
         <span
           className="inline-flex items-center gap-1.5"
-          title={stale ? "The hourly refresh hasn't finished for a while" : "Career pages are re-read every hour"}
+          title={stale ? "The refresh hasn't finished for a while" : "Career pages are re-read every two hours"}
         >
           <span aria-hidden className={`size-1.5 rounded-full ${stale ? "bg-yellow-ink" : "bg-green-ink"}`} />
           <span className={stale ? "text-yellow-ink" : undefined}>
@@ -135,9 +135,13 @@ export default async function Home(props: PageProps<'/'>) {
 
   const synced = lastSync();
   let [{ jobs, nextCursor }, fc] = await Promise.all([listJobs(f), facets()]);
-  // Jobs exist, so a cached "nothing" is from before a refill: ask again.
-  if (Number(fc.totals.open) === 0) fc = await fresh.facets();
-  if (jobs.length === 0 && !f.cursor) ({ jobs, nextCursor } = await fresh.listJobs(f));
+  // Jobs exist, so cached counts of nothing are from before a refill: ask
+  // again, and the list may be from then too. (An empty search on its own is
+  // just a search that matches nothing.)
+  if (Number(fc.totals.open) === 0) {
+    fc = await fresh.facets();
+    if (jobs.length === 0 && !f.cursor) ({ jobs, nextCursor } = await fresh.listJobs(f));
+  }
 
   const query = filterQuery(sp);
   // Grow the list in place while that's cheap; after MAX_PAGES, page by cursor.
@@ -187,7 +191,7 @@ export default async function Home(props: PageProps<'/'>) {
               Every new role, straight from the company’s own careers page.
             </h1>
             <p className="mt-5 max-w-xl text-pretty text-[17px] leading-relaxed text-ink">
-              Unlisted reads {n(fc.totals.companies)} career pages every hour and keeps the past {MAX_AGE_DAYS} days,
+              Unlisted reads {n(fc.totals.companies)} career pages every two hours and keeps the past {MAX_AGE_DAYS} days,
               including roles that never reach job boards. Every listing links to the employer&apos;s own posting.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">

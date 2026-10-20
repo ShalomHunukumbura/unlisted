@@ -1,14 +1,16 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { sendAlerts } from "@/lib/alerts";
 import { sendDigests } from "@/lib/digest";
 import { cleanUpProfiles } from "@/lib/profile";
 import { sendPushAlerts } from "@/lib/push";
+import { SYNCED } from "@/lib/queries";
 import { saveCurrentWeek } from "@/lib/reports";
 import { siteOrigin } from "@/lib/site";
 
-// Called by the hourly sync workflow once it has finished writing. Whatever
-// doesn't fit in the time goes out on the next run.
+// Called by the sync workflow (every two hours) once it has finished writing.
+// Whatever doesn't fit in the time goes out on the next run.
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
@@ -27,8 +29,11 @@ export async function POST(request: Request) {
     return null;
   });
   await cleanUpProfiles();
-  // The weekly report's numbers, while this week's jobs are all still here.
+  // This week's report numbers, from the sync's copy of the week's roles.
   // A failure here must not look like the alerts failed.
   await saveCurrentWeek().catch((error) => console.error("weekly report snapshot failed", error));
+  // The new jobs are in: pages refresh their cached data on their next visit
+  // (the workflow visits the busiest ones next, while the database is awake).
+  revalidateTag(SYNCED, "max");
   return NextResponse.json({ ...email, push, weekly });
 }

@@ -5,7 +5,7 @@ import { ROLE_LANDINGS } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Jobs by role",
-  description: "Software, data, design, product and sales roles from company career pages, posted in the past week.",
+  description: "Software, data, design, product and sales roles from company career pages, posted in the past 3 days.",
   alternates: { canonical: "/roles" },
 };
 

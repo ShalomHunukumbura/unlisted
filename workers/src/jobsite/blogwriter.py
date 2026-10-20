@@ -46,9 +46,8 @@ STYLE = """House style for the Unlisted blog:
 - Links: only the URLs listed in the facts under "links", written as Markdown links with paths
   exactly as given (they start with /). No other links.
 - Refer to the site as Unlisted. It reads company career pages (Greenhouse, Ashby, Lever)
-  hourly and keeps roles from the past week. One "role" is one company and job title."""
+  every two hours and lists roles from the past three days. One "role" is one company and job title."""
 
-FRESH = "COALESCE(j.posted_at, j.first_seen_at) > now() - interval '7 days' AND j.closed_at IS NULL"
 APAC = (
     "j.remote AND (j.open_to = 'anywhere' OR (j.open_to = 'region' AND j.region = 'APAC') "
     "OR (j.open_to = 'country' AND j.country IN ('LK', 'IN')))"
@@ -72,12 +71,10 @@ TITLES = {
     "Recruiter": ("recruiter", "recruiter"),
     "Registered Nurse": ("registered <-> nurse", None),
 }
-# Skills in the report, how to search for them, and their /roles page.
-SKILLS = {
-    "Python": ("python", "python"), "SQL": ("sql", None), "AWS": ("aws", None),
-    "TypeScript": ("typescript", "typescript"), "React": ("react", "react"), "Java": ("java", "java"),
-    "Kubernetes": ("kubernetes", "kubernetes"), "Go": ("golang", "golang"), "Rust": ("rust", "rust"),
-    "Salesforce": ("salesforce", None),
+# The /roles page of each skill in the report (archive.SKILLS), if it has one.
+SKILL_PAGES = {
+    "Python": "python", "TypeScript": "typescript", "React": "react", "Java": "java",
+    "Kubernetes": "kubernetes", "Go": "golang", "Rust": "rust",
 }
 
 
@@ -101,26 +98,19 @@ def reports(week: dt.date) -> tuple[dict | None, dict | None]:
     return rows.get(week), rows.get(week - dt.timedelta(days=7))
 
 
-def roles_matching(condition: str, params: tuple = ()) -> dict:
-    """Facts about the roles of the past 7 days that match a condition."""
-    # Find them once (the condition may search every description), then work
-    # from the ids: one posting per role, the newest.
-    ids = [
-        r["id"]
-        for r in _rows(
-            f"""SELECT DISTINCT ON (j.company_id, lower(j.title)) j.id FROM jobs j
-                 WHERE {FRESH} AND ({condition})
-                 ORDER BY j.company_id, lower(j.title), j.posted_at DESC NULLS LAST""",
-            params,
-        )
-    ]
-    params = (ids,)
-    base = """
-      SELECT j.id, j.company_id, j.title, j.location_raw, j.remote, j.open_to, j.region, j.country,
-             j.comp_min, j.comp_max, j.comp_currency, j.comp_period, j.posted_at, j.first_seen_at,
+def roles_matching(week: dt.date, condition: str, params: tuple = ()) -> dict:
+    """Facts about the week's roles that match a condition (on report_roles j).
+
+    From the weekly report's copy of the week (archive.py), not from jobs:
+    those are deleted three days after they're posted.
+    """
+    params = (week, *params)
+    base = f"""
+      SELECT j.job_id AS id, j.company_id, j.title, j.location_raw, j.remote, j.open_to, j.region, j.country,
+             j.comp_min, j.comp_max, j.comp_currency, j.comp_period, j.at,
              c.name AS company, c.slug
-        FROM jobs j JOIN companies c ON c.id = j.company_id
-       WHERE j.id = ANY(%s)"""
+        FROM report_roles j JOIN companies c ON c.id = j.company_id
+       WHERE j.week = %s AND ({condition})"""
     totals = _rows(
         f"""WITH m AS ({base})
             SELECT count(*) AS roles, count(DISTINCT company_id) AS companies,
@@ -155,7 +145,7 @@ def roles_matching(condition: str, params: tuple = ()) -> dict:
     examples = _rows(
         f"""WITH m AS ({base})
             SELECT id, title, company, location_raw, remote, open_to, region, country
-              FROM m ORDER BY COALESCE(posted_at, first_seen_at) DESC LIMIT 8""",
+              FROM m ORDER BY at DESC LIMIT 8""",
         params,
     )
     roles = totals["roles"] or 0
@@ -168,14 +158,10 @@ def roles_matching(condition: str, params: tuple = ()) -> dict:
         ],
         "top_countries": countries,
         "pay_usd_a_year": pay if (pay["postings_with_pay"] or 0) >= 5 else None,
+        # No link to the job page: it's gone three days after the role was
+        # posted, before the post is published.
         "example_roles": [
-            {
-                "title": e["title"],
-                "company": e["company"],
-                "where": _where(e),
-                "page": f"/jobs/{e['id']}",
-            }
-            for e in examples
+            {"title": e["title"], "company": e["company"], "where": _where(e)} for e in examples
         ],
     }
 
@@ -217,7 +203,7 @@ def pick_topic(week: dt.date, stats: dict, previous: dict | None) -> Topic:
     kind = ["apac", "skill", "title", "companies"][week.isocalendar().week % 4]
 
     if kind == "apac":
-        facts = roles_matching(APAC)
+        facts = roles_matching(week, APAC)
         return Topic(
             kind, "Remote",
             "Remote roles open to Sri Lanka and the rest of Asia-Pacific this week: who's hiring, "
@@ -227,8 +213,8 @@ def pick_topic(week: dt.date, stats: dict, previous: dict | None) -> Topic:
     if kind == "skill":
         moved = _growth(stats.get("skills", []), (previous or {}).get("skills"), "skill")
         skill = moved[0]["skill"] if moved else "Python"
-        query, page = SKILLS.get(skill, (skill.lower(), None))
-        facts = roles_matching("j.search_tsv @@ plainto_tsquery('english', %s)", (query,))
+        page = SKILL_PAGES.get(skill)
+        facts = roles_matching(week, "%s = ANY(j.skills)", (skill,))
         facts["skill"] = skill
         facts["week_on_week"] = next((m for m in moved if m["skill"] == skill), None)
         links = [f"/roles/{page}"] if page else []
@@ -242,7 +228,7 @@ def pick_topic(week: dt.date, stats: dict, previous: dict | None) -> Topic:
         moved = _growth(stats.get("titles", []), (previous or {}).get("titles"), "title")
         title = moved[0]["title"] if moved else "Software Engineer"
         query, page = TITLES.get(title, ("software <-> engineer", None))
-        facts = roles_matching("to_tsvector('english', j.title) @@ to_tsquery('english', %s)", (query,))
+        facts = roles_matching(week, "to_tsvector('english', j.title) @@ to_tsquery('english', %s)", (query,))
         facts["job_title"] = title
         facts["week_on_week"] = next((m for m in moved if m["title"] == title), None)
         links = [f"/roles/{page}"] if page else []
@@ -258,9 +244,9 @@ def pick_topic(week: dt.date, stats: dict, previous: dict | None) -> Topic:
         c["titles"] = [
             r["title"].strip()
             for r in _rows(
-                f"""SELECT DISTINCT ON (lower(j.title)) j.title FROM jobs j JOIN companies co ON co.id = j.company_id
-                     WHERE {FRESH} AND co.slug = %s ORDER BY lower(j.title), j.posted_at DESC NULLS LAST LIMIT 6""",
-                (c["slug"],),
+                """SELECT DISTINCT ON (j.title_key) j.title FROM report_roles j JOIN companies co ON co.id = j.company_id
+                    WHERE j.week = %s AND co.slug = %s ORDER BY j.title_key, j.at DESC LIMIT 6""",
+                (week, c["slug"]),
             )
         ]
     return Topic(

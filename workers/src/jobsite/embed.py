@@ -8,7 +8,7 @@ full-precision model to five decimals; the browser's 8-bit one is 0.994
 cosine-similar to it.
 
 fastembed (ONNX Runtime) instead of sentence-transformers: no PyTorch, so the
-hourly GitHub Actions run installs in seconds. It's an optional extra:
+GitHub Actions sync run installs in seconds. It's an optional extra:
 `pip install -e "workers[embed]"`.
 """
 from __future__ import annotations
@@ -27,6 +27,10 @@ MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 # The title goes first, twice: descriptions often open with company
 # boilerplate, and the title is what the job is.
 TEXT_CHARS = 1000
+# How much of the description's HTML to read for that: tags and entities make
+# HTML longer than its text. On a sample of 3,000 jobs, 4,000 changed one
+# text in 3,000 and read 39% less than whole descriptions.
+HTML_CHARS = 4000
 
 
 def job_text(title: str, department: str | None, html: str | None) -> str:
@@ -54,11 +58,14 @@ def embed_new(batch: int = 256, max_seconds: float = 900) -> int:
     while time.monotonic() - started < max_seconds:
         with cursor() as cur:
             cur.execute(
-                """SELECT id, title, department, description_html FROM jobs
+                # Only the start of the description: the text is cut to
+                # TEXT_CHARS anyway, and every byte read counts toward the
+                # database's monthly data transfer.
+                """SELECT id, title, department, left(description_html, %s) AS description_html FROM jobs
                     WHERE embedding IS NULL AND closed_at IS NULL
                       AND COALESCE(posted_at, first_seen_at) > now() - make_interval(days => %s)
                     ORDER BY first_seen_at DESC LIMIT %s""",
-                (settings.max_job_age_days, batch),
+                (HTML_CHARS, settings.max_job_age_days, batch),
             )
             rows = cur.fetchall()
         if not rows:

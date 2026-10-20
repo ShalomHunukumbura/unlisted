@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   return new Response(xml, {
     headers: {
       "Content-Type": "application/rss+xml; charset=utf-8",
-      // Readers poll; the edge answers most of them. The data changes hourly.
+      // Readers poll; the edge answers most of them. The data changes every two hours.
       "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
     },
   });

@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { countryName } from "@/components/Tags";
 
 import { query } from "./db";
-import { FRESH, MAX_AGE_DAYS, type Filters, type Job } from "./queries";
+import { FRESH, MAX_AGE_DAYS, SYNCED, SYNCED_TTL, type Filters, type Job } from "./queries";
 
 /**
  * What search engines see: the site's address, the landing pages, Google for
@@ -37,20 +37,20 @@ export const REMOTE_PAGES: Landing[] = [
   {
     path: "/remote",
     title: "Remote jobs",
-    intro: "{n} remote roles posted on company career pages in the past week, from anywhere, a region or one country.",
+    intro: "{n} remote roles posted on company career pages in the past 3 days, from anywhere, a region or one country.",
     filters: { remote: "1" },
   },
   {
     path: "/remote/anywhere",
     title: "Remote jobs you can do from anywhere",
-    intro: "{n} remote roles from the past week whose posting names no country or region: open worldwide.",
+    intro: "{n} remote roles from the past 3 days whose posting names no country or region: open worldwide.",
     filters: { remote: "anywhere" },
   },
   {
     path: "/remote/sri-lanka",
     title: "Remote jobs open to Sri Lanka",
     intro:
-      "{n} remote roles from the past week you can apply to from Sri Lanka: open worldwide, open to Asia-Pacific, or naming Sri Lanka or India.",
+      "{n} remote roles from the past 3 days you can apply to from Sri Lanka: open worldwide, open to Asia-Pacific, or naming Sri Lanka or India.",
     filters: { remote: "apac" },
   },
 ];
@@ -96,8 +96,8 @@ export const ROLE_LANDINGS: Landing[] = ROLE_PAGES.map(([slug, name, q]) => ({
   path: `/roles/${slug}`,
   title: `${name} jobs`,
   intro: q.startsWith('"')
-    ? `{n} ${name} roles posted on company career pages in the past week, newest first.`
-    : `{n} roles from the past week that mention ${name}, straight from company career pages.`,
+    ? `{n} ${name} roles posted on company career pages in the past 3 days, newest first.`
+    : `{n} roles from the past 3 days that mention ${name}, straight from company career pages.`,
   filters: { q },
 }));
 
@@ -114,7 +114,7 @@ export function countryLanding(code: string): Landing {
   return {
     path: `/locations/${countrySlug(code)}`,
     title: `Jobs in ${name}`,
-    intro: `{n} roles based in ${name} posted on company career pages in the past week, on-site, hybrid and remote.`,
+    intro: `{n} roles based in ${name} posted on company career pages in the past 3 days, on-site, hybrid and remote.`,
     filters: { country: code },
   };
 }
@@ -137,7 +137,7 @@ export const countriesWithJobs = unstable_cache(
         GROUP BY country ORDER BY n DESC`,
     ),
   ["seo-countries-v1"],
-  { revalidate: 3600 },
+  { tags: [SYNCED], revalidate: SYNCED_TTL },
 );
 
 /** Companies with open roles: the /companies index and pages. */
@@ -150,17 +150,22 @@ export const companiesWithJobs = unstable_cache(
         GROUP BY c.slug ORDER BY lower(min(c.name))`,
     ),
   ["seo-companies-v1"],
-  { revalidate: 3600 },
+  { tags: [SYNCED], revalidate: SYNCED_TTL },
 );
 
-export async function companyBySlug(slug: string) {
-  if (!/^[a-z0-9-]{1,100}$/.test(slug)) return null;
-  const rows = await query<{ name: string; careers_url: string | null }>(
-    `SELECT name, careers_url FROM companies WHERE slug = $1 ORDER BY enabled DESC, id LIMIT 1`,
-    [slug],
-  );
-  return rows[0] ?? null;
-}
+/** A company's name hardly ever changes: cached for a day. */
+export const companyBySlug = unstable_cache(
+  async (slug: string) => {
+    if (!/^[a-z0-9-]{1,100}$/.test(slug)) return null;
+    const rows = await query<{ name: string; careers_url: string | null }>(
+      `SELECT name, careers_url FROM companies WHERE slug = $1 ORDER BY enabled DESC, id LIMIT 1`,
+      [slug],
+    );
+    return rows[0] ?? null;
+  },
+  ["company-by-slug-v1"],
+  { revalidate: 86_400 },
+);
 
 /** Every open role (the newest posting of each), for the sitemap. */
 export const sitemapJobs = unstable_cache(
@@ -172,7 +177,7 @@ export const sitemapJobs = unstable_cache(
         ORDER BY j.company_id, lower(j.title), j.posted_at DESC NULLS LAST, j.id DESC`,
     ),
   ["seo-sitemap-jobs-v1"],
-  { revalidate: 3600 },
+  { tags: [SYNCED], revalidate: SYNCED_TTL },
 );
 
 // ---------------------------------------------------------------- Google for Jobs

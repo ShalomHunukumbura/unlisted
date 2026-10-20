@@ -29,7 +29,7 @@ export default async function Alerts() {
       </Link>
       <h1 className="mt-6 font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">Your alerts</h1>
       <p className="mt-3 max-w-xl text-pretty text-[15px] leading-relaxed text-ink">
-        Searches you follow by email. New matches go to {profile.email}, one email after each hourly update.
+        Searches you follow by email. New matches go to {profile.email}, one email after each update (every two hours).
       </p>
 
       {alerts.length ? (

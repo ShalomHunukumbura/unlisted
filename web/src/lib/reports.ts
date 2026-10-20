@@ -1,14 +1,17 @@
 import { unstable_cache } from "next/cache";
 
 import { query } from "./db";
+import { SYNCED, SYNCED_TTL } from "./queries";
 
 /**
  * "Hiring this week": the numbers behind each weekly report, from the roles
  * posted in one ISO week (Monday 00:00 UTC to the next). One role is one
  * company + title, as the lists show them.
  *
- * Jobs are deleted a week after they're posted, so the numbers are saved as
- * the week goes (saveCurrentWeek, after every sync) and frozen once it ends.
+ * Jobs are deleted three days after they're posted, so the week's roles come
+ * from report_roles, the sync's copy of them (workers' archive.py). The
+ * numbers are saved as the week goes (saveCurrentWeek, after every sync) and
+ * frozen once it ends.
  */
 
 export type ReportStats = {
@@ -49,9 +52,9 @@ const TITLES: [string, string][] = [
   ["Registered Nurse", "registered <-> nurse"],
 ];
 
-// Words matched anywhere in the posting.
+// Mentioned anywhere in the posting: found by the sync while the description
+// is still stored (archive.SKILLS in the workers, the same names).
 const SKILLS = ["Python", "SQL", "AWS", "TypeScript", "React", "Java", "Kubernetes", "Go", "Rust", "Salesforce"];
-const SKILL_QUERY: Record<string, string> = { Go: "golang" };
 
 /** The Monday a date's week starts, YYYY-MM-DD (UTC). */
 export function weekOf(date: Date): string {
@@ -64,16 +67,12 @@ export function weekEnd(week: string): Date {
   return new Date(new Date(`${week}T00:00:00Z`).getTime() + 7 * 86_400_000);
 }
 
-/** The week's roles, one posting per role. */
+/** The week's roles: one row per role already. */
 const WEEK = `
-  SELECT DISTINCT ON (j.company_id, lower(j.title))
-         j.id, j.company_id, j.title, j.remote, j.open_to, j.region, j.country,
-         j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
-         COALESCE(j.posted_at, j.first_seen_at) AS at
-    FROM jobs j
-   WHERE COALESCE(j.posted_at, j.first_seen_at) >= $1::date
-     AND COALESCE(j.posted_at, j.first_seen_at) < $1::date + 7
-   ORDER BY j.company_id, lower(j.title), COALESCE(j.posted_at, j.first_seen_at) DESC`;
+  SELECT r.job_id AS id, r.company_id, r.title, r.remote, r.open_to, r.region, r.country,
+         r.comp_min, r.comp_max, r.comp_currency, r.comp_period, r.at, r.skills
+    FROM report_roles r
+   WHERE r.week = $1::date`;
 
 export async function computeWeek(week: string): Promise<ReportStats> {
   const [totals, byDay, companies, countries, titles, skills, pay] = await Promise.all([
@@ -115,15 +114,13 @@ export async function computeWeek(week: string): Promise<ReportStats> {
         GROUP BY t.title ORDER BY roles DESC`,
       [week, TITLES.map(([t]) => t), TITLES.map(([, q]) => q)],
     ),
-    // Through the GIN index one skill at a time (see match.ts on why).
     query<{ skill: string; roles: number }>(
-      `SELECT s.skill, (SELECT count(DISTINCT (j.company_id, lower(j.title)))::int FROM jobs j
-                          WHERE j.search_tsv @@ plainto_tsquery('english', s.q)
-                            AND COALESCE(j.posted_at, j.first_seen_at) >= $1::date
-                            AND COALESCE(j.posted_at, j.first_seen_at) < $1::date + 7) AS roles
-         FROM unnest($2::text[], $3::text[]) AS s(skill, q)
-        ORDER BY roles DESC`,
-      [week, SKILLS, SKILLS.map((s) => SKILL_QUERY[s] ?? s)],
+      `WITH w AS (${WEEK})
+       SELECT s.skill, count(w.*)::int AS roles
+         FROM unnest($2::text[]) AS s(skill)
+         LEFT JOIN w ON s.skill = ANY(w.skills)
+        GROUP BY s.skill ORDER BY roles DESC`,
+      [week, SKILLS],
     ),
     query<{ title: string; median: number; low: number; high: number; n: number }>(
       `WITH w AS MATERIALIZED (${WEEK}),
@@ -159,7 +156,8 @@ export async function computeWeek(week: string): Promise<ReportStats> {
 
 /**
  * After every sync: rewrite this week's numbers. Past weeks are never
- * rewritten; their jobs are gone, so a rewrite would only shrink them.
+ * rewritten: a published report keeps its numbers, and report_roles only
+ * holds the last three weeks.
  */
 export async function saveCurrentWeek(now = new Date()) {
   const week = weekOf(now);
@@ -181,5 +179,5 @@ export const finishedReports = unstable_cache(
       )
     ).map((r) => r.stats),
   ["finished-reports-v1"],
-  { revalidate: 3600 },
+  { tags: [SYNCED], revalidate: SYNCED_TTL },
 );

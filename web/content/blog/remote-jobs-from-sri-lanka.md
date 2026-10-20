@@ -47,7 +47,7 @@ When a company posts one role open worldwide, its other roles often are too. If 
 
 Every company's careers page runs on an applicant tracking system, usually Greenhouse, Ashby or Lever. That's where a role is posted first. Some reach LinkedIn or job boards days later; many never do, because the company doesn't pay to promote them.
 
-Unlisted reads more than 7,700 of those careers pages every hour and keeps the past week, so a role usually shows up within an hour of being posted. Being early matters: the first few days are when applications get read most carefully.
+Unlisted reads more than 7,700 of those careers pages every two hours and keeps the past three days, so a role usually shows up within two hours of being posted. Being early matters: the first few days are when applications get read most carefully.
 
 To make that work for you:
 

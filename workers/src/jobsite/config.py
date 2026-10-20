@@ -16,13 +16,15 @@ class Settings(BaseSettings):
     # Bound phase-2 work so adding a 5000-job company can't blow up a sync.
     max_detail_fetches_per_run: int = 500
     # Jobs posted longer ago than this are skipped at sync and deleted by prune:
-    # within a week or two most roles have hundreds of applicants, so they're
-    # noise. 7, not 14: two weeks of every board outgrew Neon's free 512 MB.
-    max_job_age_days: int = 7
+    # within days most roles have hundreds of applicants, so they're noise.
+    # 3, down from 14 and then 7: fewer jobs keep the free database small and
+    # each run's reads and writes short.
+    # The weekly report keeps its own copy of the week's roles (archive.py).
+    max_job_age_days: int = 3
     # The full ATS payload, for debugging connectors. Never read by the app, and
     # ~5 KB a job, so the deployment turns it off to fit a free-tier database.
     store_raw: bool = True
-    # One sync_runs row per board per run (~5k an hour when hourly, ~280 bytes
+    # One sync_runs row per board per run (~5k a run, ~280 bytes
     # each). Older rows are pruned so the log can't fill a free-tier database.
     sync_runs_keep_hours: int = 6
 

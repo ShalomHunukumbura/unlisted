@@ -32,7 +32,7 @@ export default function ConfirmEmail({ email, what, link }: { email: string; wha
       </Text>
       <Button href={link}>Confirm alert</Button>
       <Text style={{ fontSize: 13, lineHeight: "20px", color: color.muted, margin: "20px 0 0" }}>
-        You&apos;ll get one email after an hourly update finds something new, and every email has an unsubscribe
+        You&apos;ll get one email after an update (every two hours) finds something new, and every email has an unsubscribe
         link.
       </Text>
     </Layout>

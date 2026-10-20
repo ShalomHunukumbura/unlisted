@@ -68,8 +68,8 @@ export default function HomeFeatures({ hasProfile }: { hasProfile: boolean }) {
         <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted">Alerts</p>
         <h3 className="mt-3 font-serif text-2xl leading-tight text-ink-strong">Follow any search</h3>
         <p className="mt-2 text-pretty text-sm leading-relaxed text-ink">
-          Search or pick filters, then get what&apos;s new by email or as a phone notification after each hourly
-          update.
+          Search or pick filters, then get what&apos;s new by email or as a phone notification after each update,
+          every two hours.
         </p>
         <div aria-hidden className="mt-4 flex flex-wrap gap-1.5 text-xs text-ink">
           {["Email", "Notification", "RSS"].map((w) => (
