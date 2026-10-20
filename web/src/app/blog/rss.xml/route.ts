@@ -26,7 +26,7 @@ export async function GET() {
 <channel>
   <title>Unlisted blog</title>
   <link>${SITE_URL}/blog</link>
-  <description>Weekly hiring numbers from 7,700 company careers pages, and guides to finding roles that never reach job boards.</description>
+  <description>Weekly hiring numbers from 10,000 company careers pages, and guides to finding roles that never reach job boards.</description>
 ${items}
 </channel>
 </rss>`;

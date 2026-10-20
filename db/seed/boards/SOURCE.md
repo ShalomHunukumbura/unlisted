@@ -1,11 +1,12 @@
 # Board lists
 
-`greenhouse.csv`, `ashby.csv`, `lever.csv` are `name,slug,url` lists of company
-job boards, vendored from **[kalil0321/ats-scrapers](https://github.com/kalil0321/ats-scrapers)**
+`greenhouse.csv`, `ashby.csv`, `lever.csv` and `recruitee.csv` are
+`name,slug,url` lists of company job boards, vendored from
+**[kalil0321/ats-scrapers](https://github.com/kalil0321/ats-scrapers)**
 (MIT licensed, © 2026 Kalil Bouzigues; license text in `LICENSE-ats-scrapers`),
-retrieved 2026-09-18.
+retrieved 2026-09-18 (`recruitee.csv` 2026-10-20, upstream commit 6b44a1b).
 
-That project maintains company→ATS-token lists for ~47 providers. Only the three
+That project maintains company→ATS-token lists for ~47 providers. Only the ones
 we have connectors for are vendored here. The `name` column matters: Ashby's API
 returns no company name at all, so without it a board token is the only label
 available.

@@ -1,12 +1,12 @@
 # Unlisted
 
-**Fresh roles straight from 7,700+ company career pages, in one search, including
+**Fresh roles straight from 10,000+ company career pages, in one search, including
 the ones that never reach job boards.**
 
 **Live: [findunlisted.link](https://findunlisted.link)**
 
 Every company's careers page is
-hosted by an applicant tracking system (Greenhouse, Ashby, Lever), and that's where
+hosted by an applicant tracking system (Greenhouse, Ashby, Lever, Recruitee), and that's where
 a role appears first. Some are cross-posted to LinkedIn and job boards later; many
 never are, and you only find them if you already know the company. Unlisted reads
 the career pages directly; it doesn't check whether a role is also on other sites. This pulls every one of those boards into a single
@@ -20,7 +20,7 @@ the employer's own apply page.
   one country, and there's a filter for roles open from Sri Lanka.
 - **Experience level** from what the description asks for ("3+ years"), falling
   back to the title.
-- **Pay** where the posting states it: Ashby and Lever's pay fields, or the range
+- **Pay** where the posting states it: Ashby, Lever and Recruitee's pay fields, or the range
   written in the description ("$120,000 - $150,000 USD"), with a filter for it.
 - **Each role once.** A company posting the same role for twelve cities shows up
   as one row, "+11 more locations", instead of twelve.
@@ -72,7 +72,7 @@ No ATS lets you enumerate its customers, and no public company→token dataset
 exists, so this is the hard part. Two paths:
 
 - `jobsite discover` takes **plain company names**, generates slug variants, and
-  asks each ATS. It works because Greenhouse/Ashby/Lever return a clean 404 for
+  asks each ATS. It works because every supported ATS returns a clean 404 for
   unknown tokens. Boards with zero jobs are rejected — stale empty shells are
   common (Vercel has an empty Ashby board beside its real Greenhouse one), so the
   highest job count wins.
@@ -82,7 +82,7 @@ exists, so this is the hard part. Two paths:
   token list or a `name,slug,url` CSV. Every token is validated, and anything
   that 404s or returns zero jobs is skipped, so a stale list is harmless.
 
-`db/seed/boards/` vendors Greenhouse, Ashby and Lever lists (11,881 companies)
+`db/seed/boards/` vendors Greenhouse, Ashby, Lever and Recruitee lists (13,045 companies)
 from [kalil0321/ats-scrapers](https://github.com/kalil0321/ats-scrapers) (MIT) —
 see `db/seed/boards/SOURCE.md`. Sample validation found ~87% still live. The CSV
 `name` column matters: Ashby's API returns no company name at all, so without it
@@ -99,6 +99,7 @@ usable throughout.
 | Greenhouse | documented | via one `?content=true` board fetch | supported |
 | Ashby | documented | inline | supported |
 | Lever | documented | inline | supported |
+| Recruitee | public careers-site API | inline (English translation preferred) | supported |
 | SmartRecruiters / Workday | public / undocumented | per-job fetch | not yet |
 | Jobvite / iCIMS / Teamtailor | key- or partner-gated | — | not planned |
 
@@ -156,7 +157,8 @@ Stored as `comp_min`, `comp_max`, `comp_currency` and `comp_period` (year, month
 or hour), base pay only:
 
 1. **Ashby** lists pay as components, sometimes equity or bonus first; only a
-   `Salary` component counts. **Lever** has an optional `salaryRange`.
+   `Salary` component counts. **Lever** has an optional `salaryRange`, and
+   **Recruitee** an optional `salary` (often monthly, in EUR).
 2. **Everything else** is read from the description (`workers/src/jobsite/pay.py`).
    About half of Greenhouse postings state a range, mostly because of US pay
    transparency laws. A wrong figure is worse than none, so a range needs a
@@ -451,7 +453,7 @@ python -m jobsite.scheduler                          # sync every 6h
 ## Tests
 
 ```bash
-make test    # 178 tests (connector fixtures under workers/tests/fixtures; the age
+make test    # 184 tests (connector fixtures under workers/tests/fixtures; the age
              # test uses the dev database and is skipped when it's not running)
 ```
 

@@ -16,6 +16,7 @@ const ATS_LABEL: Record<string, string> = {
   greenhouse: "Greenhouse",
   ashby: "Ashby",
   lever: "Lever",
+  recruitee: "Recruitee",
   smartrecruiters: "SmartRecruiters",
   workday: "Workday",
 };

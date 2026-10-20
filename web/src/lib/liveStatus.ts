@@ -40,6 +40,8 @@ export async function checkLive(ref: Ref): Promise<LiveState> {
       const host = ref.ats_config?.region === "eu" ? "api.eu.lever.co" : "api.lever.co";
       return status(`https://${host}/v0/postings/${e(ref.board_token)}/${e(ref.external_id)}`);
     }
+    case "recruitee":
+      return status(`https://${e(ref.board_token)}.recruitee.com/api/offers/${e(ref.external_id)}`);
     case "ashby": {
       // Ashby has no single-job endpoint (its job pages answer 200 even for
       // jobs that don't exist), so look for the id in the board's listing.

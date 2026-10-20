@@ -18,7 +18,7 @@ def load(ats: str) -> list[dict]:
     return json.loads((FIXTURES / f"{ats}.json").read_text())
 
 
-@pytest.mark.parametrize("ats", ["greenhouse", "ashby", "lever"])
+@pytest.mark.parametrize("ats", ["greenhouse", "ashby", "lever", "recruitee"])
 def test_normalize_produces_required_fields(ats):
     conn = connectors.get(ats)
     company = Company(id=1, name=ats, ats=ats, board_token=ats)
@@ -30,7 +30,7 @@ def test_normalize_produces_required_fields(ats):
         assert job.content_hash()
 
 
-@pytest.mark.parametrize("ats", ["greenhouse", "ashby", "lever"])
+@pytest.mark.parametrize("ats", ["greenhouse", "ashby", "lever", "recruitee"])
 def test_descriptions_are_sanitized(ats):
     conn = connectors.get(ats)
     company = Company(id=1, name=ats, ats=ats, board_token=ats)
@@ -74,5 +74,50 @@ def test_greenhouse_unescapes_content():
     assert job.description_text == "Hello world"
 
 
+def test_recruitee_prefers_english_and_reads_structured_fields():
+    conn = connectors.get("recruitee")
+    company = Company(id=1, name="r", ats="recruitee", board_token="r")
+    raw = load("recruitee")[0]
+    job = conn.normalize(company, raw)
+    assert job.title == raw["translations"]["en"]["title"]
+    assert job.description_text.startswith("As Head of People")
+    # The structured locations, in English, not the board's "Nederland".
+    assert job.country == "NL"
+    assert job.remote is False and job.remote_scope == "hybrid"
+    assert (job.comp_min, job.comp_max, job.comp_currency, job.comp_period) == (5200, 6400, "EUR", "month")
+    assert job.employment_type == "Full-time"
+    assert job.posted_at.isoformat() == "2026-09-29T14:53:39+00:00"
+
+
+def test_recruitee_country_from_code_when_name_is_localized():
+    conn = connectors.get("recruitee")
+    company = Company(id=1, name="r", ats="recruitee", board_token="r")
+    raw = load("recruitee")[0]
+    place = dict(raw["locations"][0], city="Goslar", country="Deutschland", country_code="DE")
+    job = conn.normalize(company, dict(raw, locations=[place]))
+    assert job.location_raw == "Goslar, Deutschland"
+    assert (job.country, job.region) == ("DE", "EU")
+
+
+def test_recruitee_remote_only_when_it_is_the_only_option():
+    conn = connectors.get("recruitee")
+    company = Company(id=1, name="r", ats="recruitee", board_token="r")
+    raw = load("recruitee")[0]
+    for flags, remote in [((True, False, False), True), ((True, True, True), False),
+                          ((False, False, True), False)]:
+        job = conn.normalize(company, dict(raw, **dict(zip(("remote", "hybrid", "on_site"), flags))))
+        assert job.remote is remote, flags
+
+
+def test_recruitee_keeps_untranslated_postings_and_skips_empty_pay():
+    conn = connectors.get("recruitee")
+    company = Company(id=1, name="r", ats="recruitee", board_token="r")
+    raw = load("recruitee")[1]
+    assert "en" not in raw["translations"]
+    job = conn.normalize(company, dict(raw, salary={"min": None, "max": None, "period": None, "currency": "EUR"}))
+    assert job.title == raw["title"]
+    assert job.comp_currency is None or job.pay_from_text
+
+
 def test_registry_has_tier1():
-    assert set(connectors.available()) >= {"greenhouse", "ashby", "lever"}
+    assert set(connectors.available()) >= {"greenhouse", "ashby", "lever", "recruitee"}

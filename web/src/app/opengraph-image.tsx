@@ -30,7 +30,7 @@ export default function Image() {
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 26 }}>
           {[
-            ["7,700+ company career pages", "#edf3ec", "#346538"],
+            ["10,000+ company career pages", "#edf3ec", "#346538"],
             ["Past 3 days only", "#e1f3fe", "#1f6c9f"],
             ["Remote filter for Sri Lanka", "#fbf3db", "#956400"],
           ].map(([text, bg, fg]) => (

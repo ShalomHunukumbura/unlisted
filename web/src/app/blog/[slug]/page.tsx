@@ -110,7 +110,7 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
           <aside className="mt-16 overflow-hidden rounded-2xl border border-line bg-surface p-6 sm:p-8">
             <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted">Unlisted</p>
             <p className="mt-2 max-w-lg text-balance font-serif text-3xl leading-tight text-ink-strong">
-              Every new role from 7,700 careers pages, ranked for you.
+              Every new role from 10,000 careers pages, ranked for you.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
               <Link href="/for-you" className={PRIMARY}>

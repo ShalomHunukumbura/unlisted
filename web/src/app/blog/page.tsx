@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Weekly hiring numbers from 7,700 company career pages, and guides to finding the roles that never reach job boards.",
+    "Weekly hiring numbers from 10,000 company career pages, and guides to finding the roles that never reach job boards.",
   alternates: { canonical: "/blog", types: { "application/rss+xml": "/blog/rss.xml" } },
 };
 
@@ -32,7 +32,7 @@ export default async function Blog(props: PageProps<"/blog">) {
           Notes on hiring, from the source.
         </h1>
         <p className="mt-4 text-pretty text-[17px] leading-relaxed text-ink">
-          Every week, the numbers from 7,700 company careers pages: who&apos;s hiring, how much is remote, what it
+          Every week, the numbers from 10,000 company careers pages: who&apos;s hiring, how much is remote, what it
           pays. And guides to finding the roles that never reach job boards.
         </p>
       </header>

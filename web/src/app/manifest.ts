@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Unlisted · jobs straight from company career pages",
     short_name: "Unlisted",
-    description: "Fresh jobs from 7,700+ company career pages in one search, with alerts for new roles.",
+    description: "Fresh jobs from 10,000+ company career pages in one search, with alerts for new roles.",
     start_url: "/",
     scope: "/",
     display: "standalone",

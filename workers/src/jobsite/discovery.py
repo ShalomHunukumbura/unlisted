@@ -4,7 +4,7 @@ No ATS lets you enumerate its customers and no public company->token dataset
 exists, so this is the hard part of the whole project. Two paths:
 
   probe_name()  bootstrap: guess slugs from a plain company name and ask each
-                ATS. Works because Greenhouse/Ashby/Lever 404 cleanly on
+                ATS. Works because every supported ATS 404s cleanly on
                 unknown tokens. Measured 42/50 hit rate on a plain name list.
   parse_url()   long tail: pull the ats + token straight out of a careers URL.
 """
@@ -20,7 +20,7 @@ from .db import cursor
 
 log = logging.getLogger(__name__)
 
-PROBE_ORDER = ["greenhouse", "ashby", "lever"]
+PROBE_ORDER = ["greenhouse", "ashby", "lever", "recruitee"]
 
 
 @dataclass
@@ -117,6 +117,7 @@ URL_PATTERNS = [
     ("ashby",      re.compile(r"api\.ashbyhq\.com/posting-api/job-board/([\w.-]+)")),
     ("lever",      re.compile(r"jobs(?:\.eu)?\.lever\.co/([\w-]+)")),
     ("lever",      re.compile(r"api(?:\.eu)?\.lever\.co/v0/postings/([\w-]+)")),
+    ("recruitee",  re.compile(r"([\w-]+)\.recruitee\.com")),
 ]
 
 

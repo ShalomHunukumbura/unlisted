@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     if (/no ATS board found/i.test(out) || e.code === 1) {
       return NextResponse.json({
         error:
-          "No Greenhouse, Ashby or Lever board found for that. " +
+          "No Greenhouse, Ashby, Lever or Recruitee board found for that. " +
           "Try the exact board URL (e.g. jobs.ashbyhq.com/<name>) — some " +
           "companies use Workday or a custom careers site, which aren't supported yet.",
       }, { status: 404 });

@@ -26,7 +26,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 const description =
-  "Fresh jobs from 7,700+ company career pages (Greenhouse, Ashby, Lever) in one search. Past 3 days only, every listing links to the employer's own posting.";
+  "Fresh jobs from 10,000+ company career pages (Greenhouse, Ashby, Lever, Recruitee) in one search. Past 3 days only, every listing links to the employer's own posting.";
 
 export const metadata: Metadata = {
   // Absolute URLs for the social preview image; Vercel sets this variable.
@@ -73,7 +73,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="mt-auto border-t border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">
             <p className="max-w-xl text-pretty">
-              Pulled every two hours from public Greenhouse, Ashby and Lever job boards. Every listing
+              Pulled every two hours from public Greenhouse, Ashby, Lever and Recruitee job boards. Every listing
               links to the employer&apos;s own posting; nothing is applied through this site.
             </p>
             <nav aria-label="Browse" className="flex flex-wrap gap-x-4 gap-y-1.5 sm:max-w-xs sm:justify-end">

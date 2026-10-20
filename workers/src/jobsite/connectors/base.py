@@ -97,7 +97,8 @@ def parse_dt(value: Any) -> datetime | None:
         seconds = value / 1000 if value > 1e11 else value
         return datetime.fromtimestamp(seconds, tz=timezone.utc)
     if isinstance(value, str):
-        text = value.strip().replace("Z", "+00:00")
+        # "...Z" (most), "2026-09-29 14:53:39 UTC" (Recruitee)
+        text = value.strip().replace("Z", "+00:00").removesuffix(" UTC")
         try:
             dt = datetime.fromisoformat(text)
         except ValueError:

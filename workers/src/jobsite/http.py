@@ -64,6 +64,9 @@ _DEFAULT_LIMITS = {
     "greenhouse": RateLimit(5),
     "lever": RateLimit(5),
     "ashby": RateLimit(5),
+    # Measured 2026-10: ~100 requests a minute per IP, then 429s with no
+    # Retry-After; a steady 1.5/s ran clean.
+    "recruitee": RateLimit(1.5, burst=3),
     "smartrecruiters": RateLimit(8),
     "workday": RateLimit(1, burst=2),
 }

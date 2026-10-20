@@ -34,6 +34,7 @@ def test_parse_url_shapes(monkeypatch):
         ("https://job-boards.greenhouse.io/stripe", "greenhouse", "stripe"),
         ("https://jobs.ashbyhq.com/notion", "ashby", "notion"),
         ("https://jobs.lever.co/palantir", "lever", "palantir"),
+        ("https://1x.recruitee.com/o/robotics-engineer", "recruitee", "1x"),
         ("https://boards.greenhouse.io/embed/job_board?for=acme", "greenhouse", "acme"),
     ]
     for url, ats, token in cases:

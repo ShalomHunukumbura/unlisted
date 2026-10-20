@@ -3,7 +3,7 @@ title: Why some jobs never reach LinkedIn
 description: Every job starts on a company's own careers page, and many stay there. How those pages work, why roles skip the job boards, and how to search them directly.
 date: 2026-10-06
 category: Market
-chips: ["Greenhouse", "Ashby", "Lever"]
+chips: ["Greenhouse", "Ashby", "Lever", "Recruitee"]
 ---
 
 When you search for jobs on LinkedIn or Indeed, it's easy to assume you're seeing the market. You're seeing the part of it that companies chose, and often paid, to put there.
@@ -14,11 +14,12 @@ Every role starts somewhere else first: the company's own careers page.
 
 When a company clicks "Careers" on its website, the page you land on is almost never built by the company. It's run by an **applicant tracking system** (ATS): software that hosts the job listings, collects applications and lets recruiters move candidates through interviews.
 
-Three of them run a large share of tech and startup hiring:
+A few of them run a large share of tech and startup hiring:
 
 - **Greenhouse**, used by many mid-size and large tech companies
 - **Ashby**, popular with newer startups
 - **Lever**, common across startups and scale-ups
+- **Recruitee**, widely used by European companies
 
 Each company gets its own board, such as `jobs.ashbyhq.com/linear` or `boards.greenhouse.io/stripe`. When a recruiter opens a role, it goes live there immediately.
 
@@ -41,9 +42,9 @@ That's why Unlisted only keeps roles from the past three days. Older roles aren'
 
 ## How Unlisted searches the source
 
-Greenhouse, Ashby and Lever all publish each company's board in a form software can read. Unlisted uses that:
+Greenhouse, Ashby, Lever and Recruitee all publish each company's board in a form software can read. Unlisted uses that:
 
-1. **It keeps a list of more than 7,700 companies** and which system each one uses.
+1. **It keeps a list of more than 10,000 companies** and which system each one uses.
 2. **Every two hours, it reads the boards**, picks up new roles and notices closed ones.
 3. **It cleans up each role**: where the job can be done from (remote anywhere, a region, or one country), how much experience it asks for, and the pay, when the posting states it.
 4. **Every listing links to the employer's own posting.** You apply on the company's page, not through Unlisted.
