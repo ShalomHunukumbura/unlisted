@@ -7,6 +7,7 @@ import AppliedButton from "@/components/AppliedButton";
 import BackToList from "@/components/BackToList";
 import CompanyMark from "@/components/CompanyMark";
 import LiveCheck from "@/components/LiveCheck";
+import SkillMatch from "@/components/SkillMatch";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
 import { CARD, LINK, PAGE, PRIMARY } from "@/components/ui";
 import { expLabel } from "@/lib/experience";
@@ -187,6 +188,7 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
                 <LiveCheck jobId={job.id} ats={ats} />
               </div>
             )}
+            <SkillMatch jobId={job.id} />
 
             <dl className="mt-3 divide-y divide-line border-t border-line">
               <Fact icon={<MapPin size={18} />} label="Where">
