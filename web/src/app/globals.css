@@ -8,6 +8,7 @@
  * errors (red). Every text pair here passes WCAG AA.
  */
 :root {
+  color-scheme: light;
   --canvas: #f7f8fa;
   --surface: #ffffff;
   --hover: #f0f2f5;
@@ -41,8 +42,12 @@
   --shadow-card: 0 1px 2px rgb(13 20 33 / 0.04), 0 12px 32px -16px rgb(13 20 33 / 0.14);
 }
 
+/* Dark: the system's choice, unless the toggle picked light; or the toggle's
+   own choice. The same tokens twice, because a media query and an attribute
+   can't share one selector. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --canvas: #0a0e14;
     --surface: #11161e;
     --hover: #171d27;
@@ -68,6 +73,46 @@
     --chart-soft: #164139;
 
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0a0e14;
+  --surface: #11161e;
+  --hover: #171d27;
+  --line: #222a36;
+  --line-strong: #2e3846;
+  --ink: #bac3d0;
+  --ink-strong: #eef2f7;
+  --muted: #8892a3;
+
+  --accent: #34c3a6;
+  --accent-hover: #4fd2b6;
+  --accent-fg: #04201b;
+  --accent-soft: #0d2723;
+  --accent-ink: #6edcc4;
+
+  --blue-bg: #14213a;
+  --blue-ink: #8db4f5;
+  --yellow-bg: #2c2410;
+  --yellow-ink: #e5b860;
+  --red-bg: #33171a;
+  --red-ink: #f19c94;
+
+  --chart-soft: #164139;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+}
+
+/* `dark:` utilities follow the same rule. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      @slot;
+    }
+  }
+  :root[data-theme="dark"] & {
+    @slot;
   }
 }
 

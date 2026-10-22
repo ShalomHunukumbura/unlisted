@@ -6,6 +6,7 @@ import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 import Logo from "@/components/Logo";
 import SiteNav from "@/components/SiteNav";
+import { THEME_SCRIPT } from "@/lib/theme";
 import ScrollToTop from "@/components/ScrollToTop";
 import { SITE_URL } from "@/lib/seo";
 
@@ -80,8 +81,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      // The theme script sets data-theme before React hydrates.
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-canvas font-sans text-ink">
         <a
           href="#main"
