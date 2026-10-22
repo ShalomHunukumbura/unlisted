@@ -25,12 +25,12 @@ export default async function CompaniesPage() {
   const companies = (await listCompanies()) as unknown as Row[];
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-5xl px-4 py-8">
-      <Link href="/" className="text-sm text-neutral-500 hover:underline">
-        ← All jobs
+    <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+      <Link href="/" className="text-sm text-muted hover:underline">
+        All jobs
       </Link>
-      <h1 className="mt-4 mb-1 text-2xl font-semibold tracking-tight">Companies</h1>
-      <p className="mb-6 text-sm text-neutral-500">
+      <h1 className="mt-4 mb-1 text-2xl font-semibold tracking-tight text-ink-strong">Companies</h1>
+      <p className="mb-6 text-sm text-muted">
         {companies.length} tracked ·{" "}
         {companies.filter((c) => c.enabled).length} enabled
       </p>
@@ -39,7 +39,7 @@ export default async function CompaniesPage() {
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
+          <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="py-2 pr-3 font-medium">Company</th>
               <th className="py-2 pr-3 font-medium">ATS</th>
@@ -49,16 +49,16 @@ export default async function CompaniesPage() {
               <th className="py-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <tbody className="divide-y divide-line">
             {companies.map((c) => (
               <tr key={c.id} className={c.enabled ? "" : "opacity-45"}>
                 <td className="py-2 pr-3 font-medium">{c.name}</td>
-                <td className="py-2 pr-3 text-neutral-500">{c.ats}</td>
-                <td className="py-2 pr-3 font-mono text-xs text-neutral-500">
+                <td className="py-2 pr-3 text-muted">{c.ats}</td>
+                <td className="py-2 pr-3 font-mono text-xs text-muted">
                   {c.board_token}
                 </td>
                 <td className="py-2 pr-3 text-right tabular-nums">{c.open_jobs}</td>
-                <td className="py-2 pr-3 text-neutral-500">
+                <td className="py-2 pr-3 text-muted">
                   {c.last_synced_at
                     ? new Date(c.last_synced_at).toLocaleString()
                     : "never"}
@@ -72,7 +72,7 @@ export default async function CompaniesPage() {
                       failing ×{c.consecutive_failures}
                     </span>
                   ) : (
-                    <span className="text-xs text-neutral-400">ok</span>
+                    <span className="text-xs text-muted">ok</span>
                   )}
                 </td>
               </tr>

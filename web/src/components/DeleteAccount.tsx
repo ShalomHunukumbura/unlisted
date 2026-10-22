@@ -20,18 +20,18 @@ export default function DeleteAccount() {
 
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className="text-sm text-muted transition-colors hover:text-ink-strong">
+      <button type="button" onClick={() => setConfirming(true)} className="rounded-[10px] px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-red-bg hover:text-red-ink">
         Delete account
       </button>
     );
   }
   return (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] border border-red-ink/20 bg-red-bg px-4 py-3 text-sm">
       <span className="text-ink">Delete your account, For you profile, saved roles and notifications?</span>
-      <button type="button" onClick={remove} disabled={busy} className="font-medium text-red-ink hover:underline disabled:opacity-60">
+      <button type="button" onClick={remove} disabled={busy} className="rounded-[8px] bg-red-ink px-3 py-1.5 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:text-[#33171a]">
         {busy ? "Deleting…" : "Delete"}
       </button>
-      <button type="button" onClick={() => setConfirming(false)} className="text-muted hover:text-ink-strong">
+      <button type="button" onClick={() => setConfirming(false)} className="font-medium text-ink hover:text-ink-strong">
         Keep
       </button>
     </span>

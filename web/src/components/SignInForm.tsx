@@ -1,5 +1,6 @@
 "use client";
 
+import { EnvelopeSimple } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import EmailLinkForm from "./EmailLinkForm";
@@ -20,14 +21,11 @@ export default function SignInForm({ label, intro }: { label: string; intro: str
         onClick={() => setOpen((o) => !o)}
         className={CHIP}
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-          <rect x="2" y="3.5" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M2.5 4.5L8 9l5.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-        </svg>
+<EnvelopeSimple aria-hidden size={15} />
         {label}
       </button>
       {open && (
-        <div className="basis-full rounded-lg border border-line bg-surface p-4 text-left">
+        <div className="basis-full rounded-2xl border border-line bg-surface p-4 text-left shadow-card sm:p-5">
           <EmailLinkForm intro={intro} />
         </div>
       )}

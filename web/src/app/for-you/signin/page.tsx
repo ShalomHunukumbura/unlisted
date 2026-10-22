@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PRIMARY, SECONDARY } from "@/components/ui";
+
 import { redeemSignInAction } from "@/lib/forYouActions";
 
 export const metadata: Metadata = { title: "Sign in", robots: { index: false } };
@@ -14,11 +16,11 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
   const token = typeof sp.t === "string" ? sp.t : null;
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
-      <section className="max-w-xl rounded-xl border border-line bg-surface p-6 sm:p-8">
+    <main id="main" className="mx-auto w-full min-w-0 max-w-lg px-4 pb-24 pt-14 sm:pt-24">
+      <section className="rise rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-9">
         {token && !sp.expired ? (
           <>
-            <h1 className="font-serif text-3xl leading-tight tracking-[-0.01em] text-ink-strong">
+            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-ink-strong sm:text-3xl">
               Sign in to Unlisted
             </h1>
             <p className="mt-3 text-pretty text-[15px] leading-relaxed text-ink">
@@ -28,7 +30,7 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
             <form action={redeemSignInAction.bind(null, token)} className="mt-6">
               <button
                 type="submit"
-                className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
+                className={`${PRIMARY} h-11 w-full`}
               >
                 Sign in
               </button>
@@ -36,7 +38,7 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
           </>
         ) : (
           <>
-            <h1 className="font-serif text-3xl leading-tight tracking-[-0.01em] text-ink-strong">
+            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-ink-strong sm:text-3xl">
               That link has expired
             </h1>
             <p className="mt-3 text-pretty text-[15px] leading-relaxed text-ink">
@@ -44,7 +46,7 @@ export default async function SignIn(props: PageProps<"/for-you/signin">) {
             </p>
             <Link
               href="/signin"
-              className="mt-6 inline-block rounded-md border border-line px-4 py-2 text-sm text-ink-strong transition-colors hover:bg-hover"
+              className={`${SECONDARY} mt-6`}
             >
               Send a new link
             </Link>

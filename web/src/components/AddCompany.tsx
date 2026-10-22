@@ -40,20 +40,20 @@ export default function AddCompany() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Paste a careers URL, or just a company name…"
-          className="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink-strong"
         />
         <button
           disabled={busy}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
         >
           {busy ? "Checking…" : "Add"}
         </button>
       </div>
-      <p className="mt-1.5 text-xs text-neutral-500">
+      <p className="mt-1.5 text-xs text-muted">
         e.g. <code>jobs.ashbyhq.com/linear</code>, <code>boards.greenhouse.io/figma</code>, or <code>Retool</code>
       </p>
       {msg && (
-        <pre className="mt-2 whitespace-pre-wrap rounded-md bg-neutral-100 p-3 text-xs dark:bg-neutral-900">
+        <pre className="mt-2 whitespace-pre-wrap rounded-md bg-hover p-3 text-xs">
           {msg}
         </pre>
       )}

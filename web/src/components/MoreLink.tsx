@@ -2,6 +2,8 @@
 
 import Link, { useLinkStatus } from "next/link";
 
+import { SECONDARY } from "./ui";
+
 function Label({ label }: { label: string }) {
   const { pending } = useLinkStatus();
   return <>{pending ? "Loading…" : label}</>;
@@ -13,7 +15,7 @@ export default function MoreLink({ href, label }: { href: string; label: string 
     <Link
       href={href}
       scroll={false}
-      className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
+      className={SECONDARY}
     >
       <Label label={label} />
     </Link>

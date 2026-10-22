@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { BellSimple, BookmarkSimple, CaretRight, EnvelopeSimple, Sparkle, SuitcaseSimple } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import DeleteAccount from "@/components/DeleteAccount";
+import { CARD, H1, PAGE, PRIMARY, SECONDARY } from "@/components/ui";
 import { digestAction } from "@/lib/alertActions";
 import { digestState } from "@/lib/digest";
 import { signOutAction } from "@/lib/forYouActions";
@@ -12,7 +14,19 @@ import { currentProfile } from "@/lib/profile";
 
 export const metadata: Metadata = { title: "Your account", robots: { index: false } };
 
-const ROW = "flex items-center justify-between gap-4 px-5 py-4 text-sm transition-colors hover:bg-hover";
+const ROW = "group flex items-center gap-4 px-5 py-4 text-sm transition-colors hover:bg-hover/70";
+
+function Icon({ children }: { children: React.ReactNode }) {
+  return (
+    <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-ink">
+      {children}
+    </span>
+  );
+}
+
+const Chevron = () => (
+  <CaretRight aria-hidden size={16} className="ml-auto shrink-0 text-muted transition-transform duration-200 group-hover:translate-x-0.5" />
+);
 
 /** Who's signed in, where their things are, and the way out. */
 export default async function Account() {
@@ -27,17 +41,18 @@ export default async function Account() {
   const alertsOn = alerts.filter((a) => a.state === "on").length;
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
-      <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">Your account</h1>
+    <main id="main" className={`${PAGE} pb-24 pt-10 sm:pt-14`}>
+      <h1 className={`${H1} rise`}>Your account</h1>
       <p className="mt-3 text-[15px] text-ink">
-        Signed in as <span className="font-medium text-ink-strong">{profile.email}</span>
+        Signed in as <span className="font-semibold text-ink-strong">{profile.email}</span>
       </p>
 
-      <ul className="mt-8 max-w-xl divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+      <ul className={`${CARD} mt-10 max-w-2xl divide-y divide-line overflow-hidden`}>
         <li>
           <Link href="/for-you" className={ROW}>
-            <span>
-              <span className="font-medium text-ink-strong">For you</span>
+            <Icon><Sparkle size={20} weight="fill" /></Icon>
+            <span className="min-w-0">
+              <span className="font-semibold text-ink-strong">For you</span>
               <span className="mt-0.5 block text-muted">
                 {setUp
                   ? profile.roles.length
@@ -46,47 +61,51 @@ export default async function Account() {
                   : "Add the roles you want and your skills to get a ranked feed"}
               </span>
             </span>
-            <span aria-hidden className="text-muted">→</span>
+            <Chevron />
           </Link>
         </li>
         <li>
           <Link href="/for-you?tab=saved" className={ROW}>
-            <span>
-              <span className="font-medium text-ink-strong">Saved roles</span>
+            <Icon><BookmarkSimple size={20} /></Icon>
+            <span className="min-w-0">
+              <span className="font-semibold text-ink-strong">Saved roles</span>
               <span className="mt-0.5 block text-muted">
                 {profile.saved.length ? `${profile.saved.length} saved` : "Nothing saved yet"}
               </span>
             </span>
-            <span aria-hidden className="text-muted">→</span>
+            <Chevron />
           </Link>
         </li>
         <li>
           <Link href="/account/applications" className={ROW}>
-            <span>
-              <span className="font-medium text-ink-strong">Applications</span>
+            <Icon><SuitcaseSimple size={20} /></Icon>
+            <span className="min-w-0">
+              <span className="font-semibold text-ink-strong">Applications</span>
               <span className="mt-0.5 block text-muted">
                 {applications ? `${applications} tracked` : "Keep track of where you've applied"}
               </span>
             </span>
-            <span aria-hidden className="text-muted">→</span>
+            <Chevron />
           </Link>
         </li>
         <li>
           <Link href="/account/alerts" className={ROW}>
-            <span>
-              <span className="font-medium text-ink-strong">Email alerts</span>
+            <Icon><BellSimple size={20} /></Icon>
+            <span className="min-w-0">
+              <span className="font-semibold text-ink-strong">Email alerts</span>
               <span className="mt-0.5 block text-muted">
                 {alerts.length
                   ? `${alertsOn} on${alerts.length > alertsOn ? `, ${alerts.length - alertsOn} off` : ""}`
                   : "Follow a search and get new matches by email"}
               </span>
             </span>
-            <span aria-hidden className="text-muted">→</span>
+            <Chevron />
           </Link>
         </li>
-        <li className="flex items-center justify-between gap-4 px-5 py-4 text-sm">
-          <span>
-            <span className="font-medium text-ink-strong">Weekly email</span>
+        <li className="flex items-center gap-4 px-5 py-4 text-sm">
+          <Icon><EnvelopeSimple size={20} /></Icon>
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold text-ink-strong">Weekly email</span>
             <span className="mt-0.5 block text-muted">
               {digest
                 ? "On: your 10 best For you matches, once a week"
@@ -98,9 +117,7 @@ export default async function Account() {
           <form action={digestAction.bind(null, !digest)}>
             <button
               type="submit"
-              className={`rounded-md border px-3 py-1.5 transition-colors active:scale-[0.98] ${
-                digest ? "border-line text-ink hover:bg-hover" : "border-ink-strong font-medium text-ink-strong hover:bg-hover"
-              }`}
+              className={digest ? `${SECONDARY} px-3.5 py-2` : `${PRIMARY} px-3.5 py-2`}
             >
               {digest ? "Turn off" : "Turn on"}
             </button>
@@ -108,11 +125,11 @@ export default async function Account() {
         </li>
       </ul>
 
-      <div className="mt-8 flex max-w-xl flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div className="mt-8 flex max-w-2xl flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <form action={signOutAction}>
           <button
             type="submit"
-            className="rounded-md border border-line px-4 py-2 text-sm text-ink-strong transition-colors hover:bg-hover active:scale-[0.98]"
+            className={SECONDARY}
           >
             Sign out
           </button>

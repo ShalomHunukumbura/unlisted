@@ -1,5 +1,6 @@
 "use client";
 
+import { BookmarkSimple, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -14,7 +15,7 @@ async function act(id: string, action: "hide" | "unhide" | "save" | "unsave") {
 
 // 40px on phones (a comfortable tap), 32px with a mouse.
 const iconButton =
-  "inline-flex size-10 items-center justify-center rounded-md text-muted transition-colors hover:bg-line hover:text-ink-strong sm:size-8";
+  "inline-flex size-10 items-center justify-center rounded-[10px] text-muted transition-colors hover:bg-line hover:text-ink-strong sm:size-9";
 
 /**
  * Save and "Not for me" beside a role in the "For you" feed. Both change on
@@ -54,13 +55,13 @@ export default function JobActions({
       // data-hidden folds the row (see ROW in JobRow) under this one line.
       <div
         data-hidden
-        className="absolute inset-0 z-10 flex items-center justify-between gap-3 bg-canvas text-sm"
+        className="absolute inset-0 z-10 flex items-center justify-between gap-3 bg-surface px-4 text-sm sm:px-5"
       >
         <span className="min-w-0 truncate text-muted">Hidden: {title}</span>
         <button
           type="button"
           onClick={() => toggleHidden(false)}
-          className="shrink-0 rounded-md px-2 py-1 font-medium text-ink-strong transition-colors hover:bg-hover"
+          className="shrink-0 rounded-[8px] px-2.5 py-1 font-medium text-accent-ink transition-colors hover:bg-accent-soft"
         >
           Undo
         </button>
@@ -76,17 +77,9 @@ export default function JobActions({
         aria-pressed={saved}
         aria-label={saved ? "Saved. Remove from saved" : "Save"}
         title={saved ? "Saved" : "Save"}
-        className={`${iconButton} ${saved ? "text-ink-strong" : ""}`}
+        className={`${iconButton} ${saved ? "text-accent hover:text-accent" : ""}`}
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="size-4">
-          <path
-            d="M4 2.75h8v10.5l-4-2.75-4 2.75z"
-            fill={saved ? "currentColor" : "none"}
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-        </svg>
+<BookmarkSimple aria-hidden size={18} weight={saved ? "fill" : "regular"} />
       </button>
       {hideable && (
         <button
@@ -96,9 +89,7 @@ export default function JobActions({
           title="Not for me"
           className={iconButton}
         >
-          <svg aria-hidden viewBox="0 0 16 16" className="size-4">
-            <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+<X aria-hidden size={18} />
         </button>
       )}
     </div>

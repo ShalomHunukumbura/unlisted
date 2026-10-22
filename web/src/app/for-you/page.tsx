@@ -1,16 +1,18 @@
+import { EnvelopeSimple, Sparkle } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import AccountHint from "@/components/AccountHint";
 import JobActions from "@/components/JobActions";
-import JobRow, { ROW, ROW_LINK } from "@/components/JobRow";
+import CompanyMark from "@/components/CompanyMark";
+import JobRow, { LIST, ROW, ROW_LINK } from "@/components/JobRow";
 import ListMemory from "@/components/ListMemory";
 import MoreLink from "@/components/MoreLink";
 import ProfileEditor from "@/components/ProfileEditor";
 import ProfilePanel from "@/components/ProfilePanel";
 import PushAlert from "@/components/PushAlert";
 import SignInForm from "@/components/SignInForm";
-import { CHIP, CHIP_ON } from "@/components/ui";
+import { CARD, CHIP, CHIP_ON, H1, LEAD, PAGE } from "@/components/ui";
 import { digestAction } from "@/lib/alertActions";
 import { describeFilters } from "@/lib/alerts";
 import { digestState } from "@/lib/digest";
@@ -42,8 +44,11 @@ function Why({ job }: { job: Match }) {
   else if (job.similarity !== null && job.similarity >= 0.4) parts.push("similar to your CV");
   if (!parts.length) return null;
   return (
-    <p className="mt-2 text-xs text-muted">
-      <span className="text-green-ink">Matches</span> {parts.join(" · ")}
+    <p className="mt-2.5 inline-flex items-start gap-1.5 rounded-md bg-accent-soft/70 px-2 py-1 text-xs text-ink">
+      <Sparkle aria-hidden size={12} weight="fill" className="mt-0.5 shrink-0 text-accent" />
+      <span>
+        <span className="font-semibold text-accent-ink">Matches</span> {parts.join(", ")}
+      </span>
     </p>
   );
 }
@@ -53,15 +58,15 @@ function Tabs({ tab, saved }: { tab: string; saved: number }) {
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`-mb-px border-b-2 px-1 pb-2.5 transition-colors ${
-        active ? "border-ink-strong font-medium text-ink-strong" : "border-transparent text-muted hover:text-ink-strong"
+      className={`rounded-[8px] px-3.5 py-1.5 font-medium transition-colors ${
+        active ? "bg-surface text-ink-strong shadow-[0_1px_2px_rgb(13_20_33/0.08)]" : "text-muted hover:text-ink-strong"
       }`}
     >
       {label}
     </Link>
   );
   return (
-    <div className="mt-8 flex gap-6 border-b border-line text-sm">
+    <div className="mt-10 mb-4 inline-flex gap-1 rounded-[10px] border border-line bg-hover p-1 text-sm">
       {item("/for-you", "Matches", tab === "matches")}
       {item("/for-you?tab=saved", `Saved${saved ? ` (${saved})` : ""}`, tab === "saved")}
     </div>
@@ -70,7 +75,9 @@ function Tabs({ tab, saved }: { tab: string; saved: number }) {
 
 async function Saved({ profile }: { profile: Profile }) {
   if (!profile.saved.length) {
-    return <p className="py-16 text-center text-sm text-muted">Roles you save show up here, even after they leave the feed.</p>;
+    return (
+      <p className={`${CARD} px-6 py-16 text-center text-sm text-muted`}>Roles you save show up here, even after they leave the feed.</p>
+    );
   }
   // Jobs leave Unlisted three days after they're posted; the employer's link still works for a while.
   const listed = new Set(
@@ -81,7 +88,7 @@ async function Saved({ profile }: { profile: Profile }) {
     ).map((r) => r.id),
   );
   return (
-    <ul>
+    <ul className={LIST}>
       {profile.saved.map((s) => (
         <li key={s.id} className={ROW}>
           <a
@@ -89,13 +96,14 @@ async function Saved({ profile }: { profile: Profile }) {
             {...(!listed.has(s.id) && { target: "_blank", rel: "noopener noreferrer" })}
             className={ROW_LINK}
           >
+            <CompanyMark name={s.company} />
             <div className="min-w-0">
-              <h2 className="text-[15px] font-medium leading-snug text-ink-strong">{s.title}</h2>
+              <h2 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink-strong group-hover:text-accent-ink">{s.title}</h2>
               <p className="mt-1 text-sm text-muted">
-                <span className="text-ink">{s.company}</span>
-                {s.location && <> · {s.location}</>}
-                {!listed.has(s.id) && <> · no longer listed here, opens the employer&apos;s page</>}
+                <span className="font-medium text-ink">{s.company}</span>
+                {s.location && <>, {s.location}</>}
               </p>
+              {!listed.has(s.id) && <p className="mt-1 text-xs text-muted">No longer listed here; opens the employer&apos;s page</p>}
             </div>
           </a>
           <JobActions id={s.id} saved title={s.title} hideable={false} />
@@ -108,23 +116,26 @@ async function Saved({ profile }: { profile: Profile }) {
 /** Before there's anything to rank by: no profile, or an account that hasn't said what it's after. */
 function Intro({ countries, email }: { countries: { country: string; n: string }[]; email: string | null }) {
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+    <main id="main" className={`${PAGE} pb-24 pt-10 sm:pt-14`}>
       <AccountHint signedIn={email !== null} />
-      <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">For you</h1>
-      <p className="mt-3 max-w-xl text-pretty text-[15px] leading-relaxed text-ink">
+      <span aria-hidden className="rise grid size-11 place-items-center rounded-[12px] bg-accent text-accent-fg">
+        <Sparkle size={22} weight="fill" />
+      </span>
+      <h1 className={`${H1} rise mt-5`}>For you</h1>
+      <p className={`${LEAD} rise mt-4`}>
         Tell Unlisted what you&apos;re after and every role from the past {MAX_AGE_DAYS} days is ranked by how well it
         fits: the roles you want, the skills you have and, if you add one, your CV.
         {email ? "" : " No account needed."}
       </p>
-      <div className="mt-8">
+      <div className="mt-10">
         <ProfileEditor initial={null} countries={countries} />
       </div>
       {email ? (
-        <p className="mt-4 text-xs text-muted">
+        <p className="mt-4 text-[13px] text-muted">
           Signed in as {email}. It&apos;s saved to your account, so it&apos;s on every device you sign in on.
         </p>
       ) : (
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
           <span>Already have an account?</span>
           <SignInForm label="Sign in" intro="We'll email a link that signs you in on this device. No password." />
         </div>
@@ -148,10 +159,10 @@ export default async function ForYou(props: PageProps<"/for-you">) {
   const digest = profile.email ? await digestState(profile.id) : false;
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
-      <header className="mb-6">
-        <h1 className="font-serif text-5xl leading-none tracking-[-0.02em] text-ink-strong sm:text-6xl">For you</h1>
-        <p className="mt-3 max-w-xl text-pretty text-[15px] leading-relaxed text-ink">
+    <main id="main" className={`${PAGE} pb-24 pt-10 sm:pt-14`}>
+      <header className="rise mb-8">
+        <h1 className={H1}>For you</h1>
+        <p className={`${LEAD} mt-4`}>
           Roles from the past {MAX_AGE_DAYS} days, best fit first: the roles you want, then your skills
           {hasCv ? ", then how close the posting reads to your CV" : ""}. Newer roles get a small lift.
         </p>
@@ -163,7 +174,7 @@ export default async function ForYou(props: PageProps<"/for-you">) {
         countries={fc.countries}
       />
 
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-xs text-muted">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-[13px] text-muted">
         <PushAlert forYou />
         {profile.email && (
           <form action={digestAction.bind(null, !digest)} className="contents">
@@ -173,10 +184,7 @@ export default async function ForYou(props: PageProps<"/for-you">) {
               title={digest ? "Your 10 best matches by email, once a week. Press to stop" : "Get your 10 best matches by email, once a week"}
               className={digest ? CHIP_ON : CHIP}
             >
-              <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-                <rect x="2" y="3.5" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M2.5 4.5L8 9l5.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-              </svg>
+              <EnvelopeSimple aria-hidden size={15} />
               {digest ? "Weekly email on" : "Weekly email"}
             </button>
           </form>
@@ -201,7 +209,7 @@ export default async function ForYou(props: PageProps<"/for-you">) {
         <Saved profile={profile} />
       ) : (
         <>
-          <ul>
+          <ul className={jobs.length ? LIST : "hidden"}>
             {jobs.map((job) => (
               <JobRow
                 key={job.id}
@@ -212,8 +220,8 @@ export default async function ForYou(props: PageProps<"/for-you">) {
             ))}
           </ul>
           {jobs.length === 0 && (
-            <div className="py-20 text-center">
-              <p className="font-serif text-2xl text-ink-strong">Nothing fits yet.</p>
+            <div className={`${CARD} px-6 py-20 text-center`}>
+              <p className="text-lg font-semibold text-ink-strong">Nothing fits yet.</p>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted">
                 No role in the past {MAX_AGE_DAYS} days matches your roles or enough of your skills with these
                 preferences. Try adding a role or more skills, or loosening where and pay.

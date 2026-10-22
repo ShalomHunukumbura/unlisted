@@ -1,11 +1,14 @@
 "use client";
 
+import { CaretDown, FileText, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 
 import { countryName } from "@/components/Tags";
 import { ROLES, SKILLS, expBucket, findRoles, findSkills, findYears, skillFor } from "@/lib/catalog";
 import { CV_TYPES, embedCv, readCv } from "@/lib/cv";
+
+import { CARD, FIELD, LABEL, PRIMARY, SECONDARY } from "./ui";
 
 export type ProfileDraft = {
   roles: string[];
@@ -14,8 +17,7 @@ export type ProfileDraft = {
   hasCv: boolean;
 };
 
-const field =
-  "w-full min-w-0 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink-strong transition-colors duration-200 placeholder:text-muted hover:border-muted focus:border-ink-strong focus:outline-none";
+const field = `${FIELD} h-10`;
 
 /** A list of short values typed one at a time: Enter or comma adds, × removes. */
 function Chips({
@@ -48,7 +50,7 @@ function Chips({
   };
   return (
     <fieldset className="min-w-0">
-      <legend className="text-sm font-medium text-ink-strong">{label}</legend>
+      <legend className={LABEL}>{label}</legend>
       <p className="mt-0.5 text-xs text-muted">{hint}</p>
       {values.length > 0 && (
         <ul className="mt-2.5 flex flex-wrap gap-1.5">
@@ -57,13 +59,11 @@ function Chips({
               <button
                 type="button"
                 onClick={() => onChange(values.filter((x) => x !== v))}
-                className="inline-flex items-center gap-1 rounded-md bg-hover py-1 pl-2 pr-1.5 text-sm text-ink-strong transition-colors hover:bg-line"
+                className="inline-flex items-center gap-1 rounded-md bg-accent-soft py-1 pl-2 pr-1.5 text-sm font-medium text-accent-ink ring-1 ring-inset ring-accent/20 transition-colors hover:bg-red-bg hover:text-red-ink hover:ring-red-ink/20"
                 aria-label={`Remove ${v}`}
               >
                 {v}
-                <svg aria-hidden viewBox="0 0 16 16" className="size-3 text-muted">
-                  <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
+<X aria-hidden size={12} weight="bold" />
               </button>
             </li>
           ))}
@@ -119,9 +119,9 @@ function Select({
 }) {
   return (
     <label className="block min-w-0">
-      <span className="text-xs text-muted">{label}</span>
+      <span className={LABEL}>{label}</span>
       {/* The home page's select: no native arrow, the same chevron. */}
-      <span className="relative mt-1 block">
+      <span className="relative mt-1.5 block">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -129,13 +129,12 @@ function Select({
         >
           {children}
         </select>
-        <svg
+        <CaretDown
           aria-hidden
-          viewBox="0 0 16 16"
-          className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted"
-        >
-          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+          size={14}
+          weight="bold"
+          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted"
+        />
       </span>
     </label>
   );
@@ -257,7 +256,7 @@ export default function ProfileEditor({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-5 sm:p-7">
+    <div className={`${CARD} p-5 sm:p-8`}>
       {/* The CV */}
       <div
         onDragOver={(e) => e.preventDefault()}
@@ -266,18 +265,23 @@ export default function ProfileEditor({
           const file = e.dataTransfer.files[0];
           if (file && !busy) onFile(file);
         }}
-        className="rounded-lg border border-dashed border-line bg-canvas p-4 sm:p-5"
+        className="rounded-2xl border border-dashed border-line-strong bg-canvas p-4 sm:p-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink-strong">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-ink">
+              <FileText size={20} />
+            </span>
+            <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink-strong">
               {hasCv ? "Matching against your CV" : "Start from your CV"}
-              <span className="font-normal text-muted"> · optional</span>
+              <span className="font-normal text-muted"> (optional)</span>
             </p>
             <p className="mt-0.5 max-w-md text-pretty text-xs text-muted">
               PDF, Word or text. It&apos;s read on this device and never uploaded: only the skills you keep
               and a numeric summary are saved.
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {hasCv && !busy && (
@@ -293,7 +297,7 @@ export default function ProfileEditor({
               </button>
             )}
             <label
-              className={`inline-flex cursor-pointer items-center rounded-md border border-line bg-surface px-3.5 py-2 text-sm text-ink-strong transition-colors hover:bg-hover ${busy ? "pointer-events-none opacity-60" : ""}`}
+              className={`${SECONDARY} cursor-pointer focus-within:ring-4 focus-within:ring-accent/15 ${busy ? "pointer-events-none opacity-60" : ""}`}
             >
               {hasCv ? "Replace CV" : "Choose file"}
               <input
@@ -308,7 +312,7 @@ export default function ProfileEditor({
           </div>
         </div>
         {cv.step !== "idle" && (
-          <p role="status" className={`mt-3 text-xs ${cv.step === "error" ? "text-yellow-ink" : "text-ink"}`}>
+          <p role="status" className={`mt-3 text-xs ${cv.step === "error" ? "text-red-ink" : "text-ink"}`}>
             {cv.step === "reading" && <>Reading {cv.name}…</>}
             {cv.step === "embedding" && (
               <>Understanding {cv.name}… The first time, this downloads a 23 MB model; after that it&apos;s instant.</>
@@ -319,7 +323,7 @@ export default function ProfileEditor({
         )}
       </div>
 
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
+      <div className="mt-7 grid gap-6 sm:grid-cols-2">
         <Chips
           label="Roles you want"
           hint="Matched against job titles. Engineer and Developer count as the same."
@@ -342,7 +346,7 @@ export default function ProfileEditor({
         />
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Select label="Where" value={pref("remote")} onChange={(v) => setPref("remote", v)}>
           <option value="">Anywhere</option>
           <option value="apac">Remote, open to Sri Lanka</option>
@@ -359,9 +363,9 @@ export default function ProfileEditor({
         </Select>
         <Select label="Your experience" value={pref("exp")} onChange={(v) => setPref("exp", v)}>
           <option value="">Not set</option>
-          <option value="0-1">0–1 years</option>
-          <option value="1-2">1–2 years</option>
-          <option value="3-5">3–5 years</option>
+          <option value="0-1">0-1 years</option>
+          <option value="1-2">1-2 years</option>
+          <option value="3-5">3-5 years</option>
           <option value="5+">5+ years</option>
         </Select>
         <Select label="Pay" value={pref("pay")} onChange={(v) => setPref("pay", v)}>
@@ -377,12 +381,12 @@ export default function ProfileEditor({
         don&apos;t say stay in.
       </p>
 
-      <div className="mt-7 flex flex-wrap items-center gap-3">
+      <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
         <button
           type="button"
           onClick={save}
           disabled={saving || refreshing || busy}
-          className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98] disabled:opacity-60"
+          className={`${PRIMARY} h-11`}
         >
           {saving || refreshing ? "Saving…" : initial ? "Save changes" : "Show my matches"}
         </button>
@@ -390,13 +394,13 @@ export default function ProfileEditor({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-3 py-2.5 text-sm text-muted transition-colors hover:text-ink-strong"
+            className="rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-ink-strong"
           >
             Cancel
           </button>
         )}
         {error && (
-          <p role="alert" className="text-sm text-yellow-ink">
+          <p role="alert" className="text-sm text-red-ink">
             {error}
           </p>
         )}

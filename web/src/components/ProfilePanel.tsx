@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import ProfileEditor, { type ProfileDraft } from "./ProfileEditor";
+import { CARD, SECONDARY } from "./ui";
 
 /** What the feed is ranked by, with Edit and Delete. */
 export default function ProfilePanel({
@@ -12,7 +13,7 @@ export default function ProfilePanel({
   countries,
 }: {
   profile: ProfileDraft;
-  /** The preferences in words, e.g. "Remote, open to Sri Lanka · 3–5 yrs". */
+  /** The preferences in words, e.g. "Remote, open to Sri Lanka · 3-5 yrs". */
   prefs: string;
   countries: { country: string; n: string }[];
 }) {
@@ -36,17 +37,17 @@ export default function ProfilePanel({
   return (
     <section
       aria-label="Your profile"
-      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-line bg-surface px-5 py-4 text-sm"
+      className={`${CARD} flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 text-sm`}
     >
       <div className="min-w-0">
-        <p className="text-pretty font-medium text-ink-strong">
+        <p className="text-pretty font-semibold text-ink-strong">
           {profile.roles.length ? profile.roles.join(", ") : "Any role"}
         </p>
         <p
           className="mt-0.5 truncate text-muted"
           title={profile.skills.length ? `Skills: ${profile.skills.join(", ")}` : undefined}
         >
-          {details.join(" · ") || "No skills yet"}
+          {details.join(", ") || "No skills yet"}
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
@@ -65,14 +66,14 @@ export default function ProfilePanel({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="text-xs text-muted transition-colors hover:text-ink-strong"
+              className="rounded-[10px] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-red-bg hover:text-red-ink"
             >
               Delete
             </button>
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded-md border border-line px-4 py-2 text-ink-strong transition-colors hover:bg-hover active:scale-[0.98]"
+              className={SECONDARY}
             >
               Edit profile
             </button>
