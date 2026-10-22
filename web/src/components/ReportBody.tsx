@@ -18,7 +18,7 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section className="mt-14">
-      <h2 className="font-serif text-3xl tracking-[-0.01em] text-ink-strong">{title}</h2>
+      <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink-strong">{title}</h2>
       {note && <p className="mt-1.5 text-sm text-muted">{note}</p>}
       <div className="mt-6">{children}</div>
     </section>
@@ -58,9 +58,9 @@ export default function ReportBody({ stats }: { stats: ReportStats }) {
           ["Remote, anywhere", n(stats.remoteAnywhere), `${pct(stats.remoteAnywhere, stats.remote)}% of remote roles`],
           ["Open to Sri Lanka", n(stats.openToSriLanka), "anywhere, APAC, or naming LK or IN"],
         ].map(([label, value, sub]) => (
-          <div key={label} className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+          <div key={label} className="rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
             <dt className="text-xs text-muted">{label}</dt>
-            <dd className="mt-1.5 font-serif text-4xl leading-none tracking-[-0.02em] text-ink-strong">{value}</dd>
+            <dd className="mt-2 text-3xl font-semibold leading-none tabular-nums tracking-[-0.04em] text-ink-strong">{value}</dd>
             <dd className="mt-2 text-xs text-muted">{sub}</dd>
           </div>
         ))}
@@ -127,7 +127,7 @@ export default function ReportBody({ stats }: { stats: ReportStats }) {
                   />
                   {/* The median, ringed in the surface colour so it reads on the band. */}
                   <span
-                    className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-chart ring-2 ring-canvas"
+                    className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-chart ring-2 ring-surface"
                     style={{ left: `${((p.median - payMin) / span) * 100}%` }}
                   />
                 </span>

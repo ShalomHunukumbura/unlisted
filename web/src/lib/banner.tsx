@@ -13,20 +13,20 @@ export const BANNER = { width: 1200, height: 630 };
 
 type Theme = { bg: string; ink: string; muted: string; accent: string; glow: string; chipBg: string; chipLine: string };
 
-// Light, warm grounds per category; reports are the one dark banner, so the
-// weekly numbers stand out in the list.
+// Cool, light grounds per category, all with the site's pine; reports are the
+// one dark banner, so the weekly numbers stand out in the list.
+const PINE = "#0b7a68";
 const THEMES: Record<Category, Theme> = {
-  Report: { bg: "#161615", ink: "#f4f2ee", muted: "#9b9a97", accent: "#c97f57", glow: "rgba(201,127,87,0.22)", chipBg: "#232321", chipLine: "#3a3936" },
-  Guide: { bg: "#f3eee6", ink: "#111111", muted: "#787774", accent: "#346538", glow: "rgba(52,101,56,0.12)", chipBg: "#fbfbfa", chipLine: "#e2dcd1" },
-  Remote: { bg: "#e9f1f6", ink: "#111111", muted: "#6b7680", accent: "#1f6c9f", glow: "rgba(31,108,159,0.14)", chipBg: "#fbfdfe", chipLine: "#d3e2ec" },
-  Companies: { bg: "#f2ebe1", ink: "#111111", muted: "#7a746b", accent: "#956400", glow: "rgba(149,100,0,0.13)", chipBg: "#fbf9f5", chipLine: "#e4dacb" },
-  Tech: { bg: "#ebedee", ink: "#111111", muted: "#6f7477", accent: "#2f3437", glow: "rgba(47,52,55,0.10)", chipBg: "#f8f9f9", chipLine: "#d9dcde" },
-  Market: { bg: "#f4e6dc", ink: "#111111", muted: "#7d6f66", accent: "#b4663f", glow: "rgba(180,102,63,0.14)", chipBg: "#fcf8f5", chipLine: "#e9d6c8" },
+  Report: { bg: "#0d1421", ink: "#eef2f7", muted: "#8892a3", accent: "#34c3a6", glow: "rgba(52,195,166,0.20)", chipBg: "#17202e", chipLine: "#2a3444" },
+  Guide: { bg: "#e9f4f1", ink: "#0d1421", muted: "#5d6b7a", accent: PINE, glow: "rgba(11,122,104,0.14)", chipBg: "#ffffff", chipLine: "#cfe5df" },
+  Remote: { bg: "#eaf0f8", ink: "#0d1421", muted: "#5f6b80", accent: "#2a5bb8", glow: "rgba(42,91,184,0.13)", chipBg: "#ffffff", chipLine: "#d3deef" },
+  Companies: { bg: "#f1f3f6", ink: "#0d1421", muted: "#667085", accent: PINE, glow: "rgba(11,122,104,0.12)", chipBg: "#ffffff", chipLine: "#dde1e7" },
+  Tech: { bg: "#eef0f4", ink: "#0d1421", muted: "#667085", accent: "#0d1421", glow: "rgba(13,20,33,0.08)", chipBg: "#ffffff", chipLine: "#d9dde4" },
+  Market: { bg: "#e7f2ef", ink: "#0d1421", muted: "#5d6b7a", accent: PINE, glow: "rgba(11,122,104,0.16)", chipBg: "#ffffff", chipLine: "#cfe5df" },
 };
 
 const font = (file: string) => readFile(join(process.cwd(), "src/assets/fonts", file));
 const fonts = Promise.all([
-  font("InstrumentSerif-Regular.ttf"),
   font("Geist-Regular.ttf"),
   font("Geist-Medium.ttf"),
   font("GeistMono-Regular.ttf"),
@@ -57,11 +57,11 @@ function DayBars({ values, theme }: { values: number[]; theme: Theme }) {
   );
 }
 
-/** Remote tags keep the site's colours: green anywhere, blue a region, amber one country. */
+/** Remote tags keep the site's colours: pine anywhere, blue a region, amber one country. */
 function dotColor(chip: string, theme: Theme) {
-  if (/anywhere/i.test(chip)) return "#346538";
-  if (/\bonly\b/i.test(chip)) return "#956400";
-  if (/APAC|EMEA|LATAM|region/i.test(chip)) return "#1f6c9f";
+  if (/anywhere/i.test(chip)) return PINE;
+  if (/\bonly\b/i.test(chip)) return "#8a5a00";
+  if (/APAC|EMEA|LATAM|region/i.test(chip)) return "#2a5bb8";
   return theme.accent;
 }
 
@@ -101,7 +101,7 @@ function Chips({ chips, theme }: { chips: string[]; theme: Theme }) {
 
 export async function banner(post: Post) {
   const theme = THEMES[post.category];
-  const [serif, sans, sansMedium, mono] = await fonts;
+  const [sans, sansMedium, mono] = await fonts;
   const size = post.title.length > 90 ? 54 : post.title.length > 60 ? 64 : 76;
   const chips = post.chips.length ? post.chips : [post.category];
 
@@ -121,17 +121,18 @@ export async function banner(post: Post) {
       >
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-            <div style={{ fontFamily: "Instrument Serif", fontSize: 40, letterSpacing: "-0.01em" }}>Unlisted</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: theme === THEMES.Report ? "#34c3a6" : PINE }} />
+              <div style={{ fontWeight: 500, fontSize: 36, letterSpacing: "-0.03em" }}>Unlisted</div>
+            </div>
             <div style={{ fontSize: 22, color: theme.muted }}>Blog</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 22, paddingRight: 40 }}>
             <div
               style={{
                 display: "flex",
-                fontFamily: "Geist Mono",
-                fontSize: 18,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
+                fontWeight: 500,
+                fontSize: 22,
                 color: theme.accent,
               }}
             >
@@ -139,17 +140,17 @@ export async function banner(post: Post) {
             </div>
             <div
               style={{
-                fontFamily: "Instrument Serif",
-                fontSize: size,
-                lineHeight: 1.04,
-                letterSpacing: "-0.02em",
+                fontWeight: 500,
+                fontSize: size - 6,
+                lineHeight: 1.08,
+                letterSpacing: "-0.035em",
               }}
             >
               {post.title}
             </div>
           </div>
           <div style={{ display: "flex", fontFamily: "Geist Mono", fontSize: 20, color: theme.muted }}>
-            {formatDate(post.date)} · findunlisted.link
+            {`${formatDate(post.date)}, findunlisted.link`}
           </div>
         </div>
         <div style={{ display: "flex", width: 340, alignItems: "center", justifyContent: "center" }}>
@@ -160,7 +161,6 @@ export async function banner(post: Post) {
     {
       ...BANNER,
       fonts: [
-        { name: "Instrument Serif", data: serif, weight: 400 },
         { name: "Geist", data: sans, weight: 400 },
         { name: "Geist", data: sansMedium, weight: 500 },
         { name: "Geist Mono", data: mono, weight: 400 },

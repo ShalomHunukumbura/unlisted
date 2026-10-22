@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { ArrowRight, CaretRight, Sparkle } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import PostCard from "@/components/PostCard";
 import ReportBody from "@/components/ReportBody";
-import { PRIMARY } from "@/components/ui";
+import { H2, PAGE, PRIMARY, SECONDARY } from "@/components/ui";
 import { allPosts, formatDate, postBySlug, weekLabel } from "@/lib/blog";
 import { SITE_URL, jsonLd } from "@/lib/seo";
 
@@ -31,7 +32,7 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
   const banner = `/blog/${post.slug}/banner`;
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-20 pt-8 sm:pt-12">
+    <main id="main" className={`${PAGE} pb-24 pt-8 sm:pt-12`}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -49,21 +50,20 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
         }}
       />
       <article>
-        <header className="mx-auto max-w-3xl">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted">
+        <header className="rise mx-auto max-w-3xl">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted">
             <Link href="/blog" className="transition-colors hover:text-ink-strong">Blog</Link>
-            <span aria-hidden>/</span>
+            <CaretRight aria-hidden size={12} />
             <Link href={`/blog?category=${post.category.toLowerCase()}`} className="transition-colors hover:text-ink-strong">
               {post.category === "Report" ? "Weekly reports" : post.category}
             </Link>
           </nav>
-          <h1 className="mt-5 text-balance font-serif text-[2.6rem] leading-[1.04] tracking-[-0.025em] text-ink-strong sm:text-6xl">
+          <h1 className="mt-6 text-balance text-[2.25rem] font-semibold leading-[1.08] tracking-[-0.04em] text-ink-strong sm:text-5xl">
             {post.title}
           </h1>
           <p className="mt-5 text-pretty text-lg leading-relaxed text-ink">{post.description}</p>
-          <p className="mt-5 flex flex-wrap gap-x-3 font-mono text-xs text-muted">
+          <p className="mt-5 flex flex-wrap gap-x-4 text-[13px] text-muted">
             <time dateTime={post.date}>{formatDate(post.date)}</time>
-            <span aria-hidden>·</span>
             <span>{post.minutes} min read</span>
           </p>
         </header>
@@ -74,23 +74,23 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
           alt=""
           width={1200}
           height={630}
-          className="mx-auto mt-10 w-full max-w-4xl rounded-2xl border border-line bg-surface"
+          className="mx-auto mt-10 w-full max-w-4xl rounded-2xl border border-line bg-surface shadow-card"
         />
 
         <div className="mx-auto mt-12 max-w-3xl">
           {post.report && (
-            <p className="mb-8 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink">
+            <p className="mb-8 rounded-[10px] border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-ink">
               Every role posted on company career pages between {weekLabel(post.report.week)}, as Unlisted saw them.
               One role is one company and title, however many cities it was posted in.
             </p>
           )}
           {post.headings.length >= 3 && (
-            <nav aria-label="Contents" className="mb-10 border-l-2 border-chart pl-4">
-              <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted">In this post</p>
+            <nav aria-label="Contents" className="mb-10 border-l-2 border-accent pl-4">
+              <p className="text-[13px] font-semibold text-ink-strong">In this post</p>
               <ol className="mt-2 space-y-1 text-sm">
                 {post.headings.map((h) => (
                   <li key={h.id}>
-                    <a href={`#${h.id}`} className="text-ink transition-colors hover:text-ink-strong">
+                    <a href={`#${h.id}`} className="text-ink transition-colors hover:text-accent-ink">
                       {h.text}
                     </a>
                   </li>
@@ -107,16 +107,18 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
           {post.report && <ReportBody stats={post.report} />}
 
           {/* Where to go from here. */}
-          <aside className="mt-16 overflow-hidden rounded-2xl border border-line bg-surface p-6 sm:p-8">
-            <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted">Unlisted</p>
-            <p className="mt-2 max-w-lg text-balance font-serif text-3xl leading-tight text-ink-strong">
+          <aside className="relative mt-16 overflow-hidden rounded-2xl border border-accent/20 bg-accent-soft p-6 sm:p-9">
+            <span aria-hidden className="grid size-10 place-items-center rounded-[10px] bg-accent text-accent-fg">
+              <Sparkle size={20} weight="fill" />
+            </span>
+            <p className="mt-5 max-w-lg text-balance text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink-strong sm:text-[1.75rem]">
               Every new role from 10,000 careers pages, ranked for you.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
               <Link href="/for-you" className={PRIMARY}>
-                Get your personal feed <span aria-hidden>→</span>
+                Get your personal feed <ArrowRight aria-hidden size={15} weight="bold" />
               </Link>
-              <Link href="/" className="text-sm font-medium text-ink-strong underline decoration-line underline-offset-4 hover:decoration-current">
+              <Link href="/" className={SECONDARY}>
                 Browse all roles
               </Link>
             </div>
@@ -125,9 +127,9 @@ export default async function BlogPost(props: PageProps<"/blog/[slug]">) {
       </article>
 
       {more.length > 0 && (
-        <section aria-labelledby="more-title" className="mx-auto mt-20 max-w-4xl border-t border-line pt-10">
-          <h2 id="more-title" className="font-serif text-3xl text-ink-strong">More from the blog</h2>
-          <ul className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2">
+        <section aria-labelledby="more-title" className="mx-auto mt-24 max-w-4xl border-t border-line pt-12">
+          <h2 id="more-title" className={H2}>More from the blog</h2>
+          <ul className="mt-8 grid gap-x-8 gap-y-12 sm:grid-cols-2">
             {more.map((p) => (
               <li key={p.slug}>
                 <PostCard post={p} />

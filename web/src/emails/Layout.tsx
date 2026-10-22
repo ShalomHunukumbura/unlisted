@@ -1,29 +1,29 @@
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from "@react-email/components";
 
 /**
- * The frame every Unlisted email shares: the site's warm monochrome, one
+ * The frame every Unlisted email shares: the site's Ink & Pine palette, one
  * column, system fonts (web fonts don't load in most mail apps), inline
  * styles only. Light on purpose: mail apps that darken emails do it well with
  * plain colours, and badly with ones they can't tell apart.
  */
 export const color = {
-  canvas: "#fbfbfa",
+  canvas: "#f7f8fa",
   surface: "#ffffff",
-  line: "#eaeaea",
-  ink: "#2f3437",
-  strong: "#111111",
-  muted: "#787774",
-  greenBg: "#edf3ec",
-  greenInk: "#346538",
-  blueBg: "#e1f3fe",
-  blueInk: "#1f6c9f",
-  yellowBg: "#fbf3db",
-  yellowInk: "#956400",
-  tagBg: "#f4f3f0",
+  line: "#e3e6eb",
+  ink: "#3b4453",
+  strong: "#0d1421",
+  muted: "#667085",
+  accent: "#0b7a68",
+  greenBg: "#e4f3ef",
+  greenInk: "#075e50",
+  blueBg: "#e8effb",
+  blueInk: "#2a5bb8",
+  yellowBg: "#fbf1dc",
+  yellowInk: "#8a5a00",
+  tagBg: "#f0f2f5",
 };
 
 const sans = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-export const serif = 'Georgia, "Times New Roman", serif';
 export const mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 export function Button({ href, children }: { href: string; children: React.ReactNode }) {
@@ -32,13 +32,13 @@ export function Button({ href, children }: { href: string; children: React.React
       href={href}
       style={{
         display: "inline-block",
-        backgroundColor: color.strong,
-        color: color.canvas,
+        backgroundColor: color.accent,
+        color: "#ffffff",
         fontSize: 14,
         fontWeight: 600,
         textDecoration: "none",
         padding: "11px 20px",
-        borderRadius: 6,
+        borderRadius: 10,
       }}
     >
       {children}
@@ -66,14 +66,14 @@ export default function Layout({
       <Preview>{preview}</Preview>
       <Body style={{ backgroundColor: color.canvas, margin: 0, padding: "32px 12px", fontFamily: sans }}>
         <Container style={{ maxWidth: 560, margin: "0 auto" }}>
-          <Text style={{ fontFamily: serif, fontSize: 28, lineHeight: "32px", color: color.strong, margin: "0 0 20px" }}>
-            Unlisted
+          <Text style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px", lineHeight: "28px", color: color.strong, margin: "0 0 20px" }}>
+            <span style={{ color: color.accent }}>■</span> Unlisted
           </Text>
           <Section
             style={{
               backgroundColor: color.surface,
               border: `1px solid ${color.line}`,
-              borderRadius: 12,
+              borderRadius: 16,
               padding: "28px 28px 24px",
             }}
           >
