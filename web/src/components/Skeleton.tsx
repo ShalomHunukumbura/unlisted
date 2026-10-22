@@ -1,5 +1,5 @@
 import { LIST } from "./JobRow";
-import { CARD, PAGE } from "./ui";
+import { PAGE } from "./ui";
 
 /** A grey placeholder bar, pulsing unless motion is reduced. */
 export function Bar({ className = "" }: { className?: string }) {
@@ -37,35 +37,6 @@ export function SkeletonPage() {
       <Bar className="mt-2.5 h-4 w-2/3 max-w-sm" />
       <div className="mt-10">
         <SkeletonRows />
-      </div>
-    </main>
-  );
-}
-
-/** The job page's shape: header, then the description beside the apply card. */
-export function SkeletonJob() {
-  return (
-    <main id="main" className={`${PAGE} pb-24 pt-8 sm:pt-10`}>
-      <p className="sr-only" role="status">Loading</p>
-      <Bar className="h-4 w-20" />
-      <div className="mt-8 flex flex-col gap-5 sm:flex-row">
-        <Bar className="size-14 shrink-0 rounded-[10px]" />
-        <div className="flex-1">
-          <Bar className="h-4 w-40" />
-          <Bar className="mt-3 h-9 w-full max-w-xl" />
-          <Bar className="mt-2 h-9 w-2/3 max-w-md" />
-        </div>
-      </div>
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-14">
-        <div className={`${CARD} h-80 p-5 lg:order-2`}>
-          <Bar className="h-12 w-full rounded-[10px]" />
-          <Bar className="mt-2.5 h-11 w-full rounded-[10px]" />
-        </div>
-        <div className="space-y-3 lg:order-1">
-          {[100, 92, 96, 70, 0, 88, 94, 60].map((w, i) =>
-            w ? <Bar key={i} className="h-4" /> : <div key={i} className="h-4" />,
-          )}
-        </div>
       </div>
     </main>
   );

@@ -121,8 +121,6 @@ export function countryLanding(code: string): Landing {
 
 // ---------------------------------------------------------------- data
 
-const DAY = `interval '${MAX_AGE_DAYS} days'`;
-
 /**
  * Countries with open roles, most first: the /locations pages. Ones with
  * fewer than MIN_ROLES get a page (job pages link to it) but stay out of the
@@ -167,16 +165,30 @@ export const companyBySlug = unstable_cache(
   { revalidate: 86_400 },
 );
 
-/** Every open role (the newest posting of each), for the sitemap. */
+/**
+ * How many roles the jobs sitemap lists. Listing every open role (~15,000)
+ * didn't get them crawled: Search Console showed ~16,000 "Discovered, not
+ * indexed", as a three-day page expires before Google gets to it, and the
+ * pile took crawling away from the pages that last (companies, landing pages).
+ * So it lists the newest roles of the past day, as many as Google might
+ * crawl; the Indexing API (jobsite index-notify) announces them too.
+ */
+const SITEMAP_JOBS = 1000;
+
+/** The newest open roles of the past day (the newest posting of each), for the sitemap. */
 export const sitemapJobs = unstable_cache(
   () =>
     query<{ id: string; at: Date }>(
-      `SELECT DISTINCT ON (j.company_id, lower(j.title)) j.id::text, COALESCE(j.posted_at, j.first_seen_at) AS at
-         FROM jobs j
-        WHERE j.closed_at IS NULL AND COALESCE(j.posted_at, j.first_seen_at) > now() - ${DAY}
-        ORDER BY j.company_id, lower(j.title), j.posted_at DESC NULLS LAST, j.id DESC`,
+      `SELECT id, at FROM (
+         SELECT DISTINCT ON (j.company_id, lower(j.title)) j.id::text, COALESCE(j.posted_at, j.first_seen_at) AS at
+           FROM jobs j
+          WHERE j.closed_at IS NULL AND COALESCE(j.posted_at, j.first_seen_at) > now() - interval '1 day'
+          ORDER BY j.company_id, lower(j.title), j.posted_at DESC NULLS LAST, j.id DESC
+       ) roles
+       ORDER BY at DESC
+       LIMIT ${SITEMAP_JOBS}`,
     ),
-  ["seo-sitemap-jobs-v1"],
+  ["seo-sitemap-jobs-v2"],
   { tags: [SYNCED], revalidate: SYNCED_TTL },
 );
 

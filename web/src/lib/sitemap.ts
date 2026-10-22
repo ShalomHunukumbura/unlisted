@@ -13,8 +13,8 @@ import {
 /**
  * The sitemaps. /sitemap.xml is an index of three files, so Search Console
  * reports each kind of page on its own: the pages that last (landing pages and
- * the blog), the companies, and the jobs, which are only up for three days.
- * ~22,000 URLs in all; one file may hold 50,000.
+ * the blog), the companies, and the newest jobs, which are only up for three
+ * days. ~5,000 URLs in all; one file may hold 50,000.
  */
 
 type Entry = { path: string; lastModified: Date; changeFrequency: "hourly" | "daily"; priority: number };
@@ -39,7 +39,7 @@ export const SITEMAPS = {
     ...[..."abcdefghijklmnopqrstuvwxyz", "0-9"].map((l) => page(`/companies?letter=${l}`, 0.4)),
     ...(await companiesWithJobs()).map((c) => page(`/companies/${c.slug}`, 0.5)),
   ],
-  /** Every open role (its newest posting). Jobs leave the same hour they leave the site. */
+  /** The newest open roles of the past day (see sitemapJobs). */
   jobs: async (): Promise<Entry[]> =>
     (await sitemapJobs()).map((j) => ({
       path: `/jobs/${j.id}`,
