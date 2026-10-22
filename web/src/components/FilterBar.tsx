@@ -181,6 +181,7 @@ export default function FilterBar({ countries, departments }: Props) {
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
         />
         <input
+          id="search"
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}

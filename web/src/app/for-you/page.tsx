@@ -6,6 +6,7 @@ import AccountHint from "@/components/AccountHint";
 import JobActions from "@/components/JobActions";
 import CompanyMark from "@/components/CompanyMark";
 import JobRow, { LIST, ROW, ROW_LINK } from "@/components/JobRow";
+import { ShortcutHint } from "@/components/ListKeys";
 import ListMemory from "@/components/ListMemory";
 import MoreLink from "@/components/MoreLink";
 import ProfileEditor from "@/components/ProfileEditor";
@@ -90,7 +91,7 @@ async function Saved({ profile }: { profile: Profile }) {
   return (
     <ul className={LIST}>
       {profile.saved.map((s) => (
-        <li key={s.id} className={ROW}>
+        <li key={s.id} className={ROW} data-job={s.id}>
           <a
             href={listed.has(s.id) ? `/jobs/${s.id}` : s.apply_url}
             {...(!listed.has(s.id) && { target: "_blank", rel: "noopener noreferrer" })}
@@ -228,9 +229,10 @@ export default async function ForYou(props: PageProps<"/for-you">) {
               </p>
             </div>
           )}
+          {jobs.length > 0 && !(more && pages < MAX_PAGES) && <ShortcutHint />}
           {more && pages < MAX_PAGES && (
             <div className="mt-10 flex justify-center">
-              <MoreLink href={`/for-you?pages=${pages + 1}`} label="Show more matches" />
+              <MoreLink href={`/for-you?pages=${pages + 1}`} label="Show more matches" auto />
             </div>
           )}
         </>

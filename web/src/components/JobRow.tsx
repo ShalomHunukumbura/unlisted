@@ -18,10 +18,14 @@ function timeAgo(iso: string | null): string {
 /** The list the rows sit in: one raised card, a hairline between rows. */
 export const LIST = `${CARD} divide-y divide-line overflow-hidden`;
 
-/** The row hover: a background behind the whole row, buttons included. */
+/**
+ * The row hover: a background behind the whole row, buttons included. A
+ * keyboard-focused row (j/k) gets the same, plus an accent bar on the left:
+ * the card clips an outline.
+ */
 export const ROW =
-  "group relative isolate flex items-start gap-2 px-4 transition-colors duration-200 hover:bg-hover/70 sm:px-5 has-[[data-hidden]]:h-12 has-[[data-hidden]]:overflow-hidden";
-export const ROW_LINK = "flex min-w-0 flex-1 gap-3.5 py-4 sm:gap-4";
+  "group relative isolate flex items-start gap-2 px-4 transition-colors duration-200 hover:bg-hover/70 sm:px-5 has-[>a:focus-visible]:bg-hover/70 has-[>a:focus-visible]:shadow-[inset_3px_0_0_var(--accent)] has-[[data-hidden]]:h-12 has-[[data-hidden]]:overflow-hidden";
+export const ROW_LINK = "flex min-w-0 flex-1 gap-3.5 py-4 focus-visible:outline-none sm:gap-4";
 
 /**
  * One role in a list: the home feed and "For you". `why` goes under the tags
@@ -38,12 +42,16 @@ export default function JobRow({ job, why, aside }: { job: Job; why?: React.Reac
       ? `${job.role_postings} openings`
       : null;
   return (
-    <li className={ROW}>
+    // data-job and data-seen let ListMemory mark rows new since the last visit, or already opened.
+    <li className={ROW} data-job={job.id} data-seen={job.first_seen_at ?? job.posted_at ?? undefined}>
       <Link href={`/jobs/${job.id}`} className={ROW_LINK}>
         <CompanyMark name={job.company_name} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-pretty text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink-strong transition-colors group-hover:text-accent-ink">
+            <h2 className="text-pretty text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink-strong transition-colors group-hover:text-accent-ink group-data-[viewed]:font-medium group-data-[viewed]:text-muted">
+              <span className="mr-2 hidden translate-y-[-1px] rounded-md bg-accent px-1.5 py-0.5 align-middle text-[11px] font-semibold leading-none text-accent-fg group-data-[new]:inline-block">
+                New
+              </span>
               {job.title}
             </h2>
             <time

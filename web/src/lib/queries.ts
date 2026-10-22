@@ -227,7 +227,7 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
   let sql = `
     SELECT j.id::text, j.title, j.apply_url, c.name AS company_name, j.ats::text,
            j.department, j.location_raw, j.locations, j.country, j.region,
-           j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at,
+           j.remote, j.remote_scope, j.open_to, j.posted_at, j.closed_at, j.first_seen_at,
            j.exp_min_years, j.exp_max_years, j.exp_source,
            j.comp_min, j.comp_max, j.comp_currency, j.comp_period,
            r.postings AS role_postings, r.locations AS role_locations
@@ -257,6 +257,7 @@ async function listJobsUncached(f: Filters): Promise<{ jobs: Job[]; nextCursor: 
     ...j,
     posted_at: iso(j.posted_at),
     closed_at: iso(j.closed_at),
+    first_seen_at: iso(j.first_seen_at),
   }));
   const hasMore = rows.length > size;
   const jobs = hasMore ? rows.slice(0, size) : rows;

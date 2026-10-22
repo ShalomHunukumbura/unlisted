@@ -2,6 +2,7 @@ import { ArrowRight, CaretRight } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 
 import JobRow, { LIST } from "@/components/JobRow";
+import { ShortcutHint } from "@/components/ListKeys";
 import ListMemory from "@/components/ListMemory";
 import { H1, LEAD, PAGE, SECONDARY } from "@/components/ui";
 import { MAX_AGE_DAYS, countRoles, listJobs, type Filters } from "@/lib/queries";
@@ -78,6 +79,8 @@ export default async function LandingPage({
           </Link>
         </div>
       )}
+
+      {jobs.length > 0 && <ShortcutHint />}
 
       {related.length > 0 && (
         <nav aria-label="Related" className="mt-20 border-t border-line pt-8">

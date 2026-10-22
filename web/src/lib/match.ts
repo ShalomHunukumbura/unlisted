@@ -192,7 +192,7 @@ export async function matchJobs(profile: Profile, opts: Options = {}): Promise<{
         FROM matched m
     )
     SELECT id::text, title, apply_url, company_name, ats, department, location_raw, locations,
-           country, region, remote, remote_scope, open_to, posted_at, closed_at,
+           country, region, remote, remote_scope, open_to, posted_at, closed_at, first_seen_at,
            exp_min_years, exp_max_years, exp_source, comp_min, comp_max, comp_currency, comp_period,
            role_hits, skill_hits, round(similarity::numeric, 3)::float AS similarity,
            fit + ${FRESH_POINTS} * power(0.5, extract(epoch FROM now() - coalesce(posted_at, first_seen_at))
@@ -203,6 +203,11 @@ export async function matchJobs(profile: Profile, opts: Options = {}): Promise<{
      LIMIT $${limitParam}`;
 
   const rows = await queryNoJit<Match>(sql, params);
-  const jobs = rows.slice(0, size).map((j) => ({ ...j, posted_at: iso(j.posted_at), closed_at: iso(j.closed_at) }));
+  const jobs = rows.slice(0, size).map((j) => ({
+    ...j,
+    posted_at: iso(j.posted_at),
+    closed_at: iso(j.closed_at),
+    first_seen_at: iso(j.first_seen_at),
+  }));
   return { jobs, more: rows.length > size };
 }

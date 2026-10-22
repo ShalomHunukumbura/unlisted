@@ -7,7 +7,9 @@ import { Fragment, Suspense } from "react";
 import AlertSignup from "@/components/AlertSignup";
 import FilterBar from "@/components/FilterBar";
 import HomeFeatures from "@/components/HomeFeatures";
+import { ShortcutHint } from "@/components/ListKeys";
 import ListMemory from "@/components/ListMemory";
+import MoreLink from "@/components/MoreLink";
 import CompanyMark from "@/components/CompanyMark";
 import { Tag, remoteLabel } from "@/components/Tags";
 import { CARD, H1, H2, LEAD, PAGE, PRIMARY, SECONDARY } from "@/components/ui";
@@ -356,11 +358,17 @@ export default async function Home(props: PageProps<'/'>) {
 
         {nextCursor && (
           <div className="mt-10 flex justify-center">
-            <Link href={`/?${nextParams.toString()}`} scroll={!growInPlace} className={SECONDARY}>
-              Show older roles
-            </Link>
+            {/* Endless while the list can grow in place; past MAX_PAGES it pages by cursor, by hand. */}
+            {growInPlace ? (
+              <MoreLink href={`/?${nextParams.toString()}`} label="Show older roles" auto />
+            ) : (
+              <Link href={`/?${nextParams.toString()}`} className={SECONDARY}>
+                Show older roles
+              </Link>
+            )}
           </div>
         )}
+        {jobs.length > 0 && <ShortcutHint />}
       </section>
     </main>
   );
