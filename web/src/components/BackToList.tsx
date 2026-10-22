@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
@@ -38,9 +39,9 @@ export default function BackToList() {
           router.back();
         }
       }}
-      className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-ink-strong"
+      className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink-strong"
     >
-      <span aria-hidden>←</span> {list ? "Back to results" : "All jobs"}
+      <ArrowLeft aria-hidden size={15} className="transition-transform duration-200 group-hover:-translate-x-0.5" /> {list ? "Back to results" : "All jobs"}
     </Link>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
+import { Check, Plus } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { followCompanyAction } from "@/lib/alertActions";
 import { onSessionChange, signedInHere } from "@/lib/session";
 
-import { CHIP, CHIP_ON } from "./ui";
+import { LINK, PRIMARY, SECONDARY } from "./ui";
 
 /**
  * "Follow" on a company's page: an email when it posts a new role. The page
@@ -45,7 +46,7 @@ export default function FollowCompany({ name }: { name: string }) {
   if (askSignIn) {
     return (
       <p className="text-sm text-ink">
-        <Link href="/signin" className="font-medium text-ink-strong underline decoration-line underline-offset-4 hover:decoration-current">
+        <Link href="/signin" className={LINK}>
           Sign in
         </Link>{" "}
         to follow {name} and get an email when it posts a new role.
@@ -53,18 +54,12 @@ export default function FollowCompany({ name }: { name: string }) {
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <button type="button" onClick={toggle} disabled={busy} aria-pressed={following} className={following ? CHIP_ON : CHIP}>
-        <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-          {following ? (
-            <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          ) : (
-            <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          )}
-        </svg>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <button type="button" onClick={toggle} disabled={busy} aria-pressed={following} className={following ? `${SECONDARY} border-accent/40 bg-accent-soft text-accent-ink hover:bg-accent-soft` : PRIMARY}>
+        {following ? <Check aria-hidden size={16} weight="bold" /> : <Plus aria-hidden size={16} weight="bold" />}
         {following ? "Following" : `Follow ${name}`}
       </button>
-      <span role="status" className="text-xs text-muted">
+      <span role="status" className="text-[13px] text-muted">
         {message ?? (following ? "You get an email when it posts a new role." : "Get an email when it posts a new role.")}
       </span>
     </div>

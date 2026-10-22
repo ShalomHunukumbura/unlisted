@@ -1,5 +1,6 @@
 "use client";
 
+import { CaretDown, MagnifyingGlass, SlidersHorizontal, X } from "@phosphor-icons/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
@@ -31,19 +32,18 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full min-w-0 cursor-pointer appearance-none truncate rounded-md border bg-surface py-2 pl-3 pr-8 text-sm transition-colors duration-200 hover:border-muted ${
-          value ? "border-ink-strong text-ink-strong" : "border-line text-ink"
+        className={`h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-[10px] border py-2 pl-3 pr-8 text-sm transition-[border-color,background-color,box-shadow] duration-200 hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15 ${
+          value ? "border-accent/50 bg-accent-soft font-medium text-accent-ink" : "border-line bg-surface text-ink"
         }`}
       >
         {children}
       </select>
-      <svg
+      <CaretDown
         aria-hidden
-        viewBox="0 0 16 16"
-        className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted"
-      >
-        <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+        size={14}
+        weight="bold"
+        className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 ${value ? "text-accent-ink" : "text-muted"}`}
+      />
     </label>
   );
 }
@@ -107,8 +107,8 @@ function CompanyFilter({ value, onChange }: { value: string; onChange: (value: s
         }}
         onKeyDown={(e) => e.key === "Enter" && commit(text)}
         onBlur={() => commit(text)}
-        className={`w-full min-w-0 rounded-md border bg-surface py-2 pl-3 pr-3 text-sm transition-colors duration-200 placeholder:text-ink hover:border-muted focus:border-ink-strong focus:outline-none ${
-          value ? "border-ink-strong text-ink-strong" : "border-line text-ink"
+        className={`h-10 w-full min-w-0 rounded-[10px] border py-2 pl-3 pr-3 text-sm transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-ink hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15 ${
+          value ? "border-accent/50 bg-accent-soft font-medium text-accent-ink" : "border-line bg-surface text-ink"
         }`}
       />
       <datalist id="company-options">
@@ -175,30 +175,27 @@ export default function FilterBar({ countries, departments }: Props) {
     <div role="search">
       <label className="relative block">
         <span className="sr-only">Search jobs</span>
-        <svg
+        <MagnifyingGlass
           aria-hidden
-          viewBox="0 0 20 20"
-          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted"
-        >
-          <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
-          <path d="M13 13l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+          size={20}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+        />
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search, e.g. backend python"
-          className="w-full rounded-lg border border-line bg-surface py-3 pl-10 pr-24 text-[15px] text-ink-strong transition-colors duration-200 placeholder:text-muted hover:border-muted focus:border-ink-strong focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          placeholder="Search titles or skills"
+          className="h-14 w-full rounded-2xl border border-line bg-surface pl-12 pr-20 text-base sm:pr-28 text-ink-strong shadow-card transition-[border-color,box-shadow] duration-200 placeholder:text-muted hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15 [&::-webkit-search-cancel-button]:hidden"
         />
         <span
           aria-live="polite"
-          className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted transition-opacity duration-200 ${pending ? "opacity-100" : "opacity-0"}`}
+          className={`pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-muted transition-opacity duration-200 ${pending ? "opacity-100" : "opacity-0"}`}
         >
           {pending ? "Updating…" : ""}
         </span>
       </label>
 
-      <div className="mt-2.5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <Select label="Where" value={value("remote")} onChange={(v) => set("remote", v)} wide>
           <option value="">Any location</option>
           <option value="apac">Remote, open to Sri Lanka</option>
@@ -212,10 +209,13 @@ export default function FilterBar({ countries, departments }: Props) {
           type="button"
           aria-expanded={more}
           onClick={() => setMore((m) => !m)}
-          className="col-span-2 flex items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink transition-colors hover:border-muted sm:hidden"
+          className="col-span-2 flex h-10 items-center justify-between rounded-[10px] border border-line bg-surface px-3 text-sm text-ink transition-colors hover:border-line-strong sm:hidden"
         >
-          <span>{more ? "Fewer filters" : "More filters"}</span>
-          {folded > 0 && <span className="font-mono text-xs text-muted">{folded} on</span>}
+          <span className="inline-flex items-center gap-2">
+            <SlidersHorizontal aria-hidden size={16} />
+            {more ? "Fewer filters" : "More filters"}
+          </span>
+          {folded > 0 && <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink">{folded} on</span>}
         </button>
 
         <div className={`${more ? "contents" : "hidden"} sm:contents`}>
@@ -228,9 +228,9 @@ export default function FilterBar({ countries, departments }: Props) {
 
         <Select label="Experience" value={value("exp")} onChange={(v) => set("exp", v)}>
           <option value="">Any experience</option>
-          <option value="0-1">0–1 years</option>
-          <option value="1-2">1–2 years</option>
-          <option value="3-5">3–5 years</option>
+          <option value="0-1">0-1 years</option>
+          <option value="1-2">1-2 years</option>
+          <option value="3-5">3-5 years</option>
           <option value="5+">5+ years</option>
           <option value="unknown">Not stated</option>
         </Select>
@@ -267,8 +267,9 @@ export default function FilterBar({ countries, departments }: Props) {
               setQ("");
               navigate("/");
             }}
-            className="col-span-2 justify-self-start rounded-md px-1 py-1.5 text-sm text-muted underline decoration-line underline-offset-4 transition-colors hover:text-ink-strong hover:decoration-current sm:ml-auto"
+            className="col-span-2 inline-flex h-10 items-center gap-1.5 justify-self-start rounded-[10px] px-2.5 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-ink-strong sm:ml-auto"
           >
+            <X aria-hidden size={14} weight="bold" />
             Clear filters
           </button>
         )}

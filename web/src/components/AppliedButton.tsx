@@ -1,9 +1,12 @@
 "use client";
 
+import { Check, Plus } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { onSessionChange, signedInHere } from "@/lib/session";
+
+import { LINK, SECONDARY } from "./ui";
 
 /**
  * "Mark as applied" on a job page, for the application tracker. The page is
@@ -42,8 +45,8 @@ export default function AppliedButton({ jobId }: { jobId: string }) {
 
   if (askSignIn) {
     return (
-      <span className="text-sm text-ink">
-        <Link href="/signin" className="font-medium text-ink-strong underline decoration-line underline-offset-4 hover:decoration-current">
+      <span className="block rounded-[10px] bg-canvas px-3 py-2.5 text-center text-sm text-ink">
+        <Link href="/signin" className={LINK}>
           Sign in
         </Link>{" "}
         to keep track of where you&apos;ve applied.
@@ -51,27 +54,19 @@ export default function AppliedButton({ jobId }: { jobId: string }) {
     );
   }
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+    <span className="flex flex-col items-center gap-2">
       <button
         type="button"
         onClick={toggle}
         aria-pressed={applied}
         title={applied ? "Remove from your applications" : "Add to your applications"}
-        className={`inline-flex items-center gap-2 rounded-md border px-4 py-2.5 text-sm transition-[color,border-color,transform] duration-200 active:scale-[0.98] ${
-          applied ? "border-ink-strong font-medium text-ink-strong" : "border-line text-ink hover:border-muted hover:text-ink-strong"
-        }`}
+        className={`${SECONDARY} h-11 w-full ${applied ? "border-accent/40 bg-accent-soft text-accent-ink hover:border-accent/60 hover:bg-accent-soft" : ""}`}
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-          {applied ? (
-            <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          ) : (
-            <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          )}
-        </svg>
+        {applied ? <Check aria-hidden size={16} weight="bold" /> : <Plus aria-hidden size={16} weight="bold" />}
         {applied ? "Applied" : "Mark as applied"}
       </button>
       {applied && (
-        <Link href="/account/applications" className="text-xs text-muted underline decoration-line underline-offset-4 hover:text-ink-strong">
+        <Link href="/account/applications" className="text-xs text-muted underline decoration-line underline-offset-4 transition-colors hover:text-ink-strong">
           Your applications
         </Link>
       )}

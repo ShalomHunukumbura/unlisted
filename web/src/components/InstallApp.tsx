@@ -1,5 +1,6 @@
 "use client";
 
+import { DownloadSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 import { CHIP } from "./ui";
@@ -35,9 +36,7 @@ export default function InstallApp() {
       }}
       className={CHIP}
     >
-      <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-        <path d="M8 2.5v7.5M4.75 7L8 10.25 11.25 7M3 13h10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+<DownloadSimple aria-hidden size={15} />
       Install app
     </button>
   );

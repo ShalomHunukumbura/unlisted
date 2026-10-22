@@ -1,11 +1,14 @@
+import { ArrowSquareOut, Briefcase, CalendarBlank, CurrencyCircleDollar, MapPin } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import AppliedButton from "@/components/AppliedButton";
 import BackToList from "@/components/BackToList";
+import CompanyMark from "@/components/CompanyMark";
 import LiveCheck from "@/components/LiveCheck";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
+import { CARD, LINK, PAGE, PRIMARY } from "@/components/ui";
 import { expLabel } from "@/lib/experience";
 import { MAX_AGE_DAYS, getJob, sameRole, type Job } from "@/lib/queries";
 import { countryLanding, jobPostingData, jsonLd } from "@/lib/seo";
@@ -101,11 +104,14 @@ function firstSeenNote(job: {
   return `First seen by Unlisted ${shortDate(first_seen_at, true)}`;
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+function Fact({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-4 py-2.5 sm:block sm:py-0">
-      <dt className="w-28 shrink-0 font-mono text-xs uppercase tracking-[0.06em] text-muted sm:w-auto">{label}</dt>
-      <dd className="min-w-0 text-sm text-ink-strong sm:mt-1">{children}</dd>
+    <div className="flex gap-3 py-3.5">
+      <span aria-hidden className="mt-0.5 text-muted">{icon}</span>
+      <div className="min-w-0">
+        <dt className="text-xs text-muted">{label}</dt>
+        <dd className="mt-0.5 text-sm font-medium text-ink-strong">{children}</dd>
+      </div>
     </div>
   );
 }
@@ -123,153 +129,157 @@ export default async function JobPage(props: PageProps<'/jobs/[id]'>) {
   const pay = payLabel(job);
   const posting = jobPostingData(job);
 
+  const note = firstSeenNote(job);
+  const more = "rounded-[10px] border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-line-strong hover:text-ink-strong";
+
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-3xl px-4 pb-16 pt-8 sm:pt-12">
+    <main id="main" className={`${PAGE} pb-24 pt-8 sm:pt-10`}>
       {posting && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(posting) }} />}
       <BackToList />
 
-      <header className="mt-6">
-        <p className="text-sm text-ink">
-          {job.company_slug ? (
-            <Link
-              href={`/companies/${job.company_slug}`}
-              className="underline decoration-line underline-offset-4 transition-colors hover:decoration-current"
-              title={`Every open role at ${job.company_name}`}
-            >
-              {job.company_name}
-            </Link>
-          ) : (
-            job.company_name
-          )}
-          {job.department && <span className="text-muted"> · {job.department}</span>}
-        </p>
-        <h1 className="mt-1 text-balance font-serif text-4xl leading-[1.08] tracking-[-0.02em] text-ink-strong sm:text-5xl">
-          {job.title}
-        </h1>
-
-        {job.closed_at && (
-          <p className="mt-5 rounded-md bg-yellow-bg px-3 py-2.5 text-sm text-yellow-ink">
-            This role is no longer on the company&apos;s board, so it was probably filled or withdrawn.
+      <header className="rise mt-8 flex flex-col gap-5 sm:flex-row sm:items-start">
+        <CompanyMark name={job.company_name} size="lg" />
+        <div className="min-w-0">
+          <p className="text-[15px] text-ink">
+            {job.company_slug ? (
+              <Link href={`/companies/${job.company_slug}`} className={LINK} title={`Every open role at ${job.company_name}`}>
+                {job.company_name}
+              </Link>
+            ) : (
+              <span className="font-medium text-ink-strong">{job.company_name}</span>
+            )}
+            {job.department && <span className="text-muted">, {job.department}</span>}
           </p>
-        )}
-
-        <dl className="mt-8 grid divide-y divide-line border-y border-line sm:grid-cols-4 sm:gap-6 sm:divide-y-0 sm:py-5">
-          <Fact label="Where">
-            <span className="block">{job.location_raw ?? "Not stated"}</span>
-            {(remote || job.remote_scope === "hybrid") && (
-              <span className="mt-1.5 flex flex-wrap gap-1.5">
-                {remote && <Tag tone={remote.tone} title={remote.title}>{remote.text}</Tag>}
-                {job.remote_scope === "hybrid" && <Tag>Hybrid</Tag>}
-              </span>
-            )}
-          </Fact>
-          <Fact label="Experience">
-            {exp ? (
-              <>
-                <span className="font-mono tabular-nums">{exp}</span>
-                <span className="block text-xs text-muted">
-                  {job.exp_source === "title" ? "guessed from the title" : "stated in the description"}
-                </span>
-              </>
-            ) : (
-              <span className="text-muted">Not stated</span>
-            )}
-          </Fact>
-          <Fact label="Pay">
-            {pay ? (
-              <>
-                <span className="font-mono tabular-nums">{pay}</span>
-                <span className="block text-xs text-muted">base, as stated on the posting</span>
-              </>
-            ) : (
-              <span className="text-muted">Not stated</span>
-            )}
-          </Fact>
-          <Fact label="Posted">
-            {job.posted_at ? (
-              <time dateTime={job.posted_at} className="font-mono tabular-nums" title="The date on the employer's posting">
-                {shortDate(job.posted_at)}
-              </time>
-            ) : (
-              <span className="text-muted">Unknown</span>
-            )}
-            {firstSeenNote(job) && <span className="mt-0.5 block text-xs text-muted">{firstSeenNote(job)}</span>}
-          </Fact>
-        </dl>
-
-        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <a
-            href={job.apply_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
-          >
-            Apply on {ats}
-            <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-              <path d="M5 11l6-6M6 5h5v5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </a>
-          <AppliedButton jobId={job.id} />
-          <span className="basis-full text-xs text-muted">Apply opens the employer&apos;s own posting</span>
+          <h1 className="mt-2 max-w-3xl text-balance text-3xl font-semibold leading-[1.1] tracking-[-0.035em] text-ink-strong sm:text-[2.6rem]">
+            {job.title}
+          </h1>
+          {(remote || job.remote_scope === "hybrid" || exp || pay) && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {remote && <Tag tone={remote.tone} title={remote.title}>{remote.text}</Tag>}
+              {job.remote_scope === "hybrid" && <Tag>Hybrid</Tag>}
+              {pay && <Tag mono>{pay}</Tag>}
+              {exp && <Tag mono>{exp}</Tag>}
+            </div>
+          )}
         </div>
-        {!job.closed_at && (
-          <div className="mt-3">
-            <LiveCheck jobId={job.id} ats={ats} />
-          </div>
-        )}
       </header>
 
-      {others.length > 0 && (
-        <details className="mt-10 border-y border-line py-4">
-          <summary className="cursor-pointer text-sm text-ink-strong">
-            {others.length} other {others.length === 1 ? "posting" : "postings"} of this role
-          </summary>
-          <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-            {others.map((o) => (
-              <li key={o.id} className="min-w-0">
-                <Link
-                  href={`/jobs/${o.id}`}
-                  className="text-ink underline decoration-line underline-offset-4 transition-colors [overflow-wrap:anywhere] hover:text-ink-strong hover:decoration-current"
-                >
-                  {o.location_raw ?? "Location not stated"}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {job.description_html ? (
-        // Already sanitized with nh3 server-side during ingestion; do not
-        // re-sanitize here.
-        <article
-          className="prose prose-job mt-12 max-w-[68ch] text-[15px] leading-[1.7] [overflow-wrap:anywhere] prose-headings:text-base prose-headings:font-semibold prose-a:underline-offset-4"
-          dangerouslySetInnerHTML={{ __html: job.description_html }}
-        />
-      ) : (
-        <p className="mt-12 text-sm text-muted">
-          No description stored. Open the original posting to read it.
+      {job.closed_at && (
+        <p role="status" className="mt-6 rounded-[10px] border border-yellow-ink/20 bg-yellow-bg px-4 py-3 text-sm text-yellow-ink">
+          This role is no longer on the company&apos;s board, so it was probably filled or withdrawn.
         </p>
       )}
 
-      {/* More like this: the pages search engines (and people) move on to. */}
-      <nav aria-label="More roles" className="mt-14 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-6 text-sm">
-        {job.company_slug && (
-          <Link href={`/companies/${job.company_slug}`} className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
-            All roles at {job.company_name}
-          </Link>
-        )}
-        {job.country && (
-          <Link href={countryLanding(job.country).path} className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
-            {countryLanding(job.country).title}
-          </Link>
-        )}
-        {job.remote && (
-          <Link href="/remote" className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
-            Remote jobs
-          </Link>
-        )}
-      </nav>
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-14">
+        {/* The apply card: first on phones, beside the description on desktop. */}
+        <aside className="lg:order-2">
+          <div className={`${CARD} p-5 lg:sticky lg:top-24`}>
+            <a href={job.apply_url} target="_blank" rel="noopener noreferrer" className={`${PRIMARY} h-12 w-full text-[15px]`}>
+              Apply on {ats}
+              <ArrowSquareOut aria-hidden size={17} />
+            </a>
+            <div className="mt-2.5">
+              <AppliedButton jobId={job.id} />
+            </div>
+            <p className="mt-3 text-center text-xs text-muted">Apply opens the employer&apos;s own posting</p>
+            {!job.closed_at && (
+              <div className="mt-4 rounded-[10px] bg-canvas px-3 py-2.5">
+                <LiveCheck jobId={job.id} ats={ats} />
+              </div>
+            )}
+
+            <dl className="mt-3 divide-y divide-line border-t border-line">
+              <Fact icon={<MapPin size={18} />} label="Where">
+                <span className="block [overflow-wrap:anywhere]">{job.location_raw ?? "Not stated"}</span>
+              </Fact>
+              <Fact icon={<Briefcase size={18} />} label="Experience">
+                {exp ? (
+                  <>
+                    <span className="tabular-nums">{exp}</span>
+                    <span className="block text-xs font-normal text-muted">
+                      {job.exp_source === "title" ? "guessed from the title" : "stated in the description"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-normal text-muted">Not stated</span>
+                )}
+              </Fact>
+              <Fact icon={<CurrencyCircleDollar size={18} />} label="Pay">
+                {pay ? (
+                  <>
+                    <span className="tabular-nums">{pay}</span>
+                    <span className="block text-xs font-normal text-muted">base, as stated on the posting</span>
+                  </>
+                ) : (
+                  <span className="font-normal text-muted">Not stated</span>
+                )}
+              </Fact>
+              <Fact icon={<CalendarBlank size={18} />} label="Posted">
+                {job.posted_at ? (
+                  <time dateTime={job.posted_at} className="tabular-nums" title="The date on the employer's posting">
+                    {shortDate(job.posted_at)}
+                  </time>
+                ) : (
+                  <span className="font-normal text-muted">Unknown</span>
+                )}
+                {note && <span className="mt-0.5 block text-xs font-normal text-muted">{note}</span>}
+              </Fact>
+            </dl>
+          </div>
+        </aside>
+
+        <div className="min-w-0 lg:order-1">
+          {others.length > 0 && (
+            <details className={`${CARD} mb-10 px-5 py-4 [&_summary::-webkit-details-marker]:hidden`}>
+              <summary className="cursor-pointer list-none text-sm font-semibold text-ink-strong">
+                {others.length} other {others.length === 1 ? "posting" : "postings"} of this role
+              </summary>
+              <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+                {others.map((o) => (
+                  <li key={o.id} className="min-w-0">
+                    <Link href={`/jobs/${o.id}`} className={`${LINK} font-normal [overflow-wrap:anywhere]`}>
+                      {o.location_raw ?? "Location not stated"}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {job.description_html ? (
+            // Already sanitized with nh3 server-side during ingestion; do not
+            // re-sanitize here.
+            <article
+              className="prose prose-job max-w-[70ch] text-[15.5px] leading-[1.75] [overflow-wrap:anywhere] prose-headings:text-base prose-headings:font-semibold prose-headings:tracking-[-0.01em] prose-a:underline-offset-4"
+              dangerouslySetInnerHTML={{ __html: job.description_html }}
+            />
+          ) : (
+            <p className="text-sm text-muted">No description stored. Open the original posting to read it.</p>
+          )}
+
+          {/* More like this: the pages search engines (and people) move on to. */}
+          <nav aria-label="More roles" className="mt-14 border-t border-line pt-8">
+            <h2 className="text-sm font-semibold text-ink-strong">Keep looking</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {job.company_slug && (
+                <Link href={`/companies/${job.company_slug}`} className={more}>
+                  All roles at {job.company_name}
+                </Link>
+              )}
+              {job.country && (
+                <Link href={countryLanding(job.country).path} className={more}>
+                  {countryLanding(job.country).title}
+                </Link>
+              )}
+              {job.remote && (
+                <Link href="/remote" className={more}>
+                  Remote jobs
+                </Link>
+              )}
+            </div>
+          </nav>
+        </div>
+      </div>
     </main>
   );
 }

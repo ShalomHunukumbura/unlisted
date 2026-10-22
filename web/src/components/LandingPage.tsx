@@ -1,7 +1,9 @@
+import { ArrowRight, CaretRight } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 
-import JobRow from "@/components/JobRow";
+import JobRow, { LIST } from "@/components/JobRow";
 import ListMemory from "@/components/ListMemory";
+import { H1, LEAD, PAGE, SECONDARY } from "@/components/ui";
 import { MAX_AGE_DAYS, countRoles, listJobs, type Filters } from "@/lib/queries";
 import type { Landing } from "@/lib/seo";
 
@@ -40,30 +42,28 @@ export default async function LandingPage({
   const all = searchHref(landing.filters);
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+    <main id="main" className={`${PAGE} pb-24 pt-8 sm:pt-10`}>
       <ListMemory />
-      <nav aria-label="Breadcrumb" className="text-sm text-muted">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted">
         <Link href="/" className="transition-colors hover:text-ink-strong">
           Unlisted
         </Link>
-        <span aria-hidden> / </span>
+        <CaretRight aria-hidden size={12} />
         <span className="text-ink">{landing.title}</span>
       </nav>
-      <header className="mb-8 mt-4">
+      <header className="rise mb-10 mt-6">
         {eyebrow && <p className="mb-2 text-sm text-ink">{eyebrow}</p>}
-        <h1 className="text-balance font-serif text-4xl leading-[1.05] tracking-[-0.02em] text-ink-strong sm:text-5xl">
-          {landing.title}
-        </h1>
-        <p className="mt-3 max-w-2xl text-pretty text-[15px] leading-relaxed text-ink">
+        <h1 className={H1}>{landing.title}</h1>
+        <p className={`${LEAD} mt-4`}>
           {total > 0
             ? <>{landing.intro.replace("{n}", n(total))} Every listing links to the employer&apos;s own posting.</>
             : `Nothing open from the past ${MAX_AGE_DAYS} days. Unlisted only keeps ${MAX_AGE_DAYS} days of roles, and new ones come in every two hours.`}
         </p>
-        {actions && <div className="mt-5">{actions}</div>}
+        {actions && <div className="mt-6">{actions}</div>}
       </header>
 
       {jobs.length > 0 && (
-        <ul className="border-t border-line">
+        <ul className={LIST}>
           {jobs.map((job) => (
             <JobRow key={job.id} job={job} />
           ))}
@@ -72,22 +72,23 @@ export default async function LandingPage({
 
       {jobs.length === 0 ? null : (
         <div className="mt-10 flex justify-center">
-          <Link
-            href={all}
-            className="rounded-md bg-ink-strong px-5 py-2.5 text-sm font-medium text-canvas transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.98]"
-          >
+          <Link href={all} className={SECONDARY}>
             {total > jobs.length ? `See all ${n(total)} and filter` : "Search and filter these"}
+            <ArrowRight aria-hidden size={15} weight="bold" />
           </Link>
         </div>
       )}
 
       {related.length > 0 && (
-        <nav aria-label="Related" className="mt-16 border-t border-line pt-6">
-          <h2 className="text-sm font-medium text-ink-strong">Related</h2>
-          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <nav aria-label="Related" className="mt-20 border-t border-line pt-8">
+          <h2 className="text-sm font-semibold text-ink-strong">Related</h2>
+          <ul className="mt-4 flex flex-wrap gap-2 text-sm">
             {related.map((r) => (
               <li key={r.href}>
-                <Link href={r.href} className="text-ink underline decoration-line underline-offset-4 hover:text-ink-strong">
+                <Link
+                  href={r.href}
+                  className="inline-block rounded-[10px] border border-line bg-surface px-3 py-2 font-medium text-ink transition-colors hover:border-line-strong hover:text-ink-strong"
+                >
                   {r.label}
                 </Link>
               </li>

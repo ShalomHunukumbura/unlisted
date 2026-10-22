@@ -1,5 +1,6 @@
 "use client";
 
+import { Bell } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 import { CHIP, CHIP_OFF, CHIP_ON } from "./ui";
@@ -120,17 +121,7 @@ export default function PushAlert({ filters = {}, forYou = false }: { filters?: 
 
   if (state === "loading" || state === "unsupported") return null;
 
-  const icon = (
-    <svg aria-hidden viewBox="0 0 16 16" className="size-3.5">
-      <path
-        d="M4 11V7a4 4 0 018 0v4l1.25 1.5H2.75L4 11zM6.5 14a1.6 1.6 0 003 0"
-        fill={state === "on" ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  const icon = <Bell aria-hidden size={15} weight={state === "on" ? "fill" : "regular"} />;
 
   if (state === "ios") {
     return (

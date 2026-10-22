@@ -28,8 +28,8 @@ export default function LiveCheck({ jobId, ats }: { jobId: string; ats: string }
   const when = minutesOld < 1 ? "checked just now" : `checked ${minutesOld} min ago`;
 
   const view = {
-    checking: { dot: "bg-muted animate-pulse", text: `Checking ${ats} for this posting…`, tone: "text-muted" },
-    open: { dot: "bg-green-ink", text: `Still open on ${ats} · ${when}`, tone: "text-green-ink" },
+    checking: { dot: "bg-muted motion-safe:animate-pulse", text: `Checking ${ats} for this posting…`, tone: "text-muted" },
+    open: { dot: "bg-accent", text: `Still open on ${ats}, ${when}`, tone: "text-green-ink" },
     removed: {
       dot: "bg-red-ink",
       text: `No longer on ${ats}. The employer has probably filled or withdrawn it.`,
@@ -39,8 +39,8 @@ export default function LiveCheck({ jobId, ats }: { jobId: string; ats: string }
   }[state];
 
   return (
-    <p aria-live="polite" className={`flex items-center gap-2 text-sm ${view.tone}`}>
-      <span aria-hidden className={`size-2 shrink-0 rounded-full ${view.dot}`} />
+    <p aria-live="polite" className={`flex items-start gap-2 text-[13px] leading-snug ${view.tone}`}>
+      <span aria-hidden className={`mt-1 size-2 shrink-0 rounded-full ${view.dot}`} />
       {view.text}
     </p>
   );

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import CompanyMark from "@/components/CompanyMark";
+import { H1, LEAD, PAGE } from "@/components/ui";
+
 import { companiesWithJobs } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -43,22 +46,31 @@ export default async function Companies(props: PageProps<"/companies">) {
     : [...companies].sort((a, b) => b.n - a.n).slice(0, 60);
 
   return (
-    <main id="main" className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
-      <h1 className="font-serif text-4xl tracking-[-0.02em] text-ink-strong sm:text-5xl">
-        {letter ? `Companies: ${letter === "#" ? "0 to 9" : letter}` : "Companies hiring"}
-      </h1>
-      <p className="mt-3 text-[15px] text-ink">
-        {companies.length.toLocaleString("en-US")} companies posted a role on their careers page in the past 3 days.
-      </p>
-      <nav aria-label="Companies by letter" className="mt-6 flex flex-wrap gap-1">
+    <main id="main" className={`${PAGE} pb-24 pt-10 sm:pt-14`}>
+      <header className="rise">
+        <h1 className={H1}>{letter ? `Companies: ${letter === "#" ? "0 to 9" : letter}` : "Companies hiring"}</h1>
+        <p className={`${LEAD} mt-4`}>
+          {companies.length.toLocaleString("en-US")} companies posted a role on their careers page in the past 3 days.
+        </p>
+      </header>
+      <nav aria-label="Companies by letter" className="mt-8 flex flex-wrap gap-1.5">
+        <Link
+          href="/companies"
+          aria-current={!letter ? "page" : undefined}
+          className={`inline-flex h-9 items-center rounded-[10px] px-3 text-sm font-medium transition-colors ${
+            !letter ? "bg-accent text-accent-fg" : "border border-line bg-surface text-ink hover:border-line-strong hover:text-ink-strong"
+          }`}
+        >
+          Top hiring
+        </Link>
         {LETTERS.map((l) =>
           counts.get(l) ? (
             <Link
               key={l}
               href={`/companies?letter=${param(l)}`}
               aria-current={l === letter ? "page" : undefined}
-              className={`inline-flex size-8 items-center justify-center rounded-md font-mono text-sm transition-colors ${
-                l === letter ? "bg-ink-strong text-canvas" : "text-ink hover:bg-hover"
+              className={`inline-flex size-9 items-center justify-center rounded-[10px] text-sm font-medium transition-colors ${
+                l === letter ? "bg-accent text-accent-fg" : "border border-line bg-surface text-ink hover:border-line-strong hover:text-ink-strong"
               }`}
             >
               {l}
@@ -66,16 +78,24 @@ export default async function Companies(props: PageProps<"/companies">) {
           ) : null,
         )}
       </nav>
-      <h2 className="mt-10 border-b border-line pb-2 text-sm font-medium text-ink-strong">
+      <h2 className="mt-12 text-sm font-semibold text-ink-strong">
         {letter ? `${shown.length} companies` : "Hiring the most right now"}
       </h2>
-      <ul className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-3">
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((c) => (
-          <li key={c.slug} className="flex min-w-0 justify-between gap-3">
-            <Link href={`/companies/${c.slug}`} className="truncate text-ink hover:text-ink-strong hover:underline">
-              {c.name}
+          <li key={c.slug} className="min-w-0">
+            <Link
+              href={`/companies/${c.slug}`}
+              className="group flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-3.5 transition-[border-color,box-shadow] duration-200 hover:border-line-strong hover:shadow-card"
+            >
+              <CompanyMark name={c.name} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink-strong group-hover:text-accent-ink">{c.name}</span>
+                <span className="block text-[13px] text-muted">
+                  {c.n} open {c.n === 1 ? "role" : "roles"}
+                </span>
+              </span>
             </Link>
-            <span className="shrink-0 font-mono text-xs tabular-nums text-muted">{c.n}</span>
           </li>
         ))}
       </ul>

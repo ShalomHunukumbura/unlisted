@@ -1,6 +1,9 @@
+import { MapPin } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 
+import CompanyMark from "@/components/CompanyMark";
 import { Tag, payLabel, remoteLabel } from "@/components/Tags";
+import { CARD } from "@/components/ui";
 import { expLabel } from "@/lib/experience";
 import type { Job } from "@/lib/queries";
 
@@ -12,11 +15,13 @@ function timeAgo(iso: string | null): string {
   return `${days}d ago`;
 }
 
+/** The list the rows sit in: one raised card, a hairline between rows. */
+export const LIST = `${CARD} divide-y divide-line overflow-hidden`;
+
 /** The row hover: a background behind the whole row, buttons included. */
 export const ROW =
-  "group relative isolate flex items-start gap-2 border-b border-line has-[[data-hidden]]:h-12 has-[[data-hidden]]:overflow-hidden";
-export const ROW_LINK =
-  "flex min-w-0 flex-1 gap-4 py-4 after:absolute after:inset-y-0 after:-inset-x-3 after:-z-10 after:rounded-lg after:transition-colors after:duration-200 group-hover:after:bg-hover group-has-[[data-hidden]]:after:hidden";
+  "group relative isolate flex items-start gap-2 px-4 transition-colors duration-200 hover:bg-hover/70 sm:px-5 has-[[data-hidden]]:h-12 has-[[data-hidden]]:overflow-hidden";
+export const ROW_LINK = "flex min-w-0 flex-1 gap-3.5 py-4 sm:gap-4";
 
 /**
  * One role in a list: the home feed and "For you". `why` goes under the tags
@@ -35,17 +40,31 @@ export default function JobRow({ job, why, aside }: { job: Job; why?: React.Reac
   return (
     <li className={ROW}>
       <Link href={`/jobs/${job.id}`} className={ROW_LINK}>
+        <CompanyMark name={job.company_name} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-pretty text-[15px] font-medium leading-snug text-ink-strong">
-            {job.title}
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            <span className="text-ink">{job.company_name}</span>
-            {job.location_raw && <> · {job.location_raw}</>}
-            {more && <span className="text-ink"> · {more}</span>}
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-pretty text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink-strong transition-colors group-hover:text-accent-ink">
+              {job.title}
+            </h2>
+            <time
+              dateTime={job.posted_at ?? undefined}
+              className="shrink-0 pt-0.5 text-xs tabular-nums text-muted"
+            >
+              {timeAgo(job.posted_at)}
+            </time>
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
+            <span className="font-medium text-ink">{job.company_name}</span>
+            {job.location_raw && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <MapPin aria-hidden size={14} className="shrink-0" />
+                <span className="[overflow-wrap:anywhere]">{job.location_raw}</span>
+              </span>
+            )}
+            {more && <span>{more}</span>}
           </p>
           {(remote || job.remote_scope === "hybrid" || job.department || exp || pay) && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
               {pay && <Tag mono title="Base pay stated on the posting">{pay}</Tag>}
               {remote && <Tag tone={remote.tone} title={remote.title}>{remote.text}</Tag>}
               {job.remote_scope === "hybrid" && <Tag>Hybrid</Tag>}
@@ -62,12 +81,6 @@ export default function JobRow({ job, why, aside }: { job: Job; why?: React.Reac
           )}
           {why}
         </div>
-        <time
-          dateTime={job.posted_at ?? undefined}
-          className="shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted"
-        >
-          {timeAgo(job.posted_at)}
-        </time>
       </Link>
       {aside}
     </li>
