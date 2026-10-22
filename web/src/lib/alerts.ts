@@ -27,7 +27,7 @@ export const REMOTE: Record<string, string> = {
   onsite: "On-site",
 };
 export const EXP: Record<string, string> = {
-  "0-1": "0–1 yrs", "1-2": "1–2 yrs", "3-5": "3–5 yrs", "5+": "5+ yrs", unknown: "experience not stated",
+  "0-1": "0-1 yrs", "1-2": "1-2 yrs", "3-5": "3-5 yrs", "5+": "5+ yrs", unknown: "experience not stated",
 };
 export const PAY: Record<string, string> = {
   listed: "pay listed", "100": "$100K+", "150": "$150K+", "200": "$200K+",

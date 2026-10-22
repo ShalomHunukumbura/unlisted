@@ -2,54 +2,72 @@
 @plugin "@tailwindcss/typography";
 
 /*
- * Warm monochrome. Colour is only used for meaning: the pastel pairs mark how
- * open a remote role is (anywhere / a region / one country).
+ * Ink & Pine. Cool neutrals with a navy-black ink and one accent, a deep pine
+ * teal: buttons, links, focus, charts. The other hues only carry meaning: how
+ * open a remote role is (pine anywhere, blue a region, amber one country) and
+ * errors (red). Every text pair here passes WCAG AA.
  */
 :root {
-  --canvas: #fbfbfa;
+  --canvas: #f7f8fa;
   --surface: #ffffff;
-  --hover: #f4f3f0;
-  --line: #eaeaea;
-  --ink: #2f3437;
-  --ink-strong: #111111;
-  --muted: #787774;
+  --hover: #f0f2f5;
+  --line: #e3e6eb;
+  --line-strong: #cdd2da;
+  --ink: #3b4453;
+  --ink-strong: #0d1421;
+  --muted: #667085;
 
-  --green-bg: #edf3ec;
-  --green-ink: #346538;
-  --blue-bg: #e1f3fe;
-  --blue-ink: #1f6c9f;
-  --yellow-bg: #fbf3db;
-  --yellow-ink: #956400;
-  --red-bg: #fdebec;
-  --red-ink: #9f2f2d;
+  --accent: #0b7a68;
+  --accent-hover: #0a6e5e;
+  --accent-fg: #ffffff;
+  --accent-soft: #e4f3ef;
+  --accent-ink: #075e50;
 
-  /* Charts (blog reports): one clay hue, its own so it never reads as a
-     remote tag. Checked with the dataviz validator against the surface. */
-  --chart: #b4663f;
-  --chart-soft: #f1ddd2;
+  --green-bg: var(--accent-soft);
+  --green-ink: var(--accent-ink);
+  --blue-bg: #e8effb;
+  --blue-ink: #2a5bb8;
+  --yellow-bg: #fbf1dc;
+  --yellow-ink: #8a5a00;
+  --red-bg: #fdecec;
+  --red-ink: #b42318;
+
+  /* Charts (blog reports): the accent, so a chart never reads as a remote tag
+     colour that means something else. */
+  --chart: var(--accent);
+  --chart-soft: #c7e6de;
+
+  /* Elevation, tinted to the ink so it never looks like a grey smudge. */
+  --shadow-card: 0 1px 2px rgb(13 20 33 / 0.04), 0 12px 32px -16px rgb(13 20 33 / 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --canvas: #191918;
-    --surface: #202020;
-    --hover: #252524;
-    --line: #2f2f2d;
-    --ink: #d4d3d0;
-    --ink-strong: #f1f0ed;
-    --muted: #9b9a97;
+    --canvas: #0a0e14;
+    --surface: #11161e;
+    --hover: #171d27;
+    --line: #222a36;
+    --line-strong: #2e3846;
+    --ink: #bac3d0;
+    --ink-strong: #eef2f7;
+    --muted: #8892a3;
 
-    --green-bg: #1e2b20;
-    --green-ink: #94c49a;
-    --blue-bg: #172735;
-    --blue-ink: #8cc1e6;
-    --yellow-bg: #30290f;
-    --yellow-ink: #dcb664;
-    --red-bg: #361d1d;
-    --red-ink: #e9a19f;
+    --accent: #34c3a6;
+    --accent-hover: #4fd2b6;
+    --accent-fg: #04201b;
+    --accent-soft: #0d2723;
+    --accent-ink: #6edcc4;
 
-    --chart: #c97f57;
-    --chart-soft: #3a2a22;
+    --blue-bg: #14213a;
+    --blue-ink: #8db4f5;
+    --yellow-bg: #2c2410;
+    --yellow-ink: #e5b860;
+    --red-bg: #33171a;
+    --red-ink: #f19c94;
+
+    --chart-soft: #164139;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
   }
 }
 
@@ -58,9 +76,15 @@
   --color-surface: var(--surface);
   --color-hover: var(--hover);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-strong: var(--ink-strong);
   --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
   --color-green-bg: var(--green-bg);
   --color-green-ink: var(--green-ink);
   --color-blue-bg: var(--blue-bg);
@@ -72,26 +96,45 @@
   --color-chart: var(--chart);
   --color-chart-soft: var(--chart-soft);
 
+  --shadow-card: var(--shadow-card);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-instrument-serif);
 }
 
 body {
   background: var(--canvas);
   color: var(--ink);
+  font-feature-settings: "ss01", "cv11";
 }
 
 ::selection {
-  background: var(--yellow-bg);
+  background: var(--accent-soft);
   color: var(--ink-strong);
 }
 
 /* Visible for keyboard users, invisible for mouse clicks. */
 :focus-visible {
-  outline: 2px solid var(--ink-strong);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+/* A quiet entrance for the hero and page headers: it says "this is new", once. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+  .rise {
+    animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
 }
 
 /* Job descriptions come from many companies' editors: keep them calm. */
@@ -99,8 +142,8 @@ body {
   --tw-prose-body: var(--ink);
   --tw-prose-headings: var(--ink-strong);
   --tw-prose-bold: var(--ink-strong);
-  --tw-prose-links: var(--ink-strong);
-  --tw-prose-bullets: var(--muted);
+  --tw-prose-links: var(--accent-ink);
+  --tw-prose-bullets: var(--line-strong);
   --tw-prose-counters: var(--muted);
   --tw-prose-hr: var(--line);
   --tw-prose-quotes: var(--ink);
@@ -109,38 +152,30 @@ body {
   --tw-prose-td-borders: var(--line);
 }
 
-/* "Browse all roles" glides down to the list, unless motion is reduced. */
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
-/* Blog posts: the same calm tokens, with room to read. */
+/* Blog posts: the same tokens, with room to read. */
 .prose-blog {
   --tw-prose-body: var(--ink);
   --tw-prose-headings: var(--ink-strong);
   --tw-prose-bold: var(--ink-strong);
-  --tw-prose-links: var(--ink-strong);
-  --tw-prose-bullets: var(--chart);
+  --tw-prose-links: var(--accent-ink);
+  --tw-prose-bullets: var(--accent);
   --tw-prose-counters: var(--muted);
   --tw-prose-hr: var(--line);
   --tw-prose-quotes: var(--ink-strong);
-  --tw-prose-quote-borders: var(--chart);
+  --tw-prose-quote-borders: var(--accent);
   --tw-prose-code: var(--ink-strong);
   --tw-prose-th-borders: var(--line);
   --tw-prose-td-borders: var(--line);
 }
 .prose-blog h2 {
-  font-family: var(--font-instrument-serif);
-  font-weight: 400;
-  font-size: 2rem;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  scroll-margin-top: 1.5rem;
+  font-weight: 600;
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  scroll-margin-top: 5rem;
 }
 .prose-blog a {
-  text-decoration-color: var(--line);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
   text-underline-offset: 4px;
   transition: text-decoration-color 0.2s;
 }

@@ -15,10 +15,10 @@ export function countryName(code: string | null): string {
 }
 
 const TONES: Record<Tone, string> = {
-  neutral: "bg-hover text-muted",
-  green: "bg-green-bg text-green-ink",
-  blue: "bg-blue-bg text-blue-ink",
-  yellow: "bg-yellow-bg text-yellow-ink",
+  neutral: "bg-hover text-ink ring-line",
+  green: "bg-green-bg text-green-ink ring-accent/20",
+  blue: "bg-blue-bg text-blue-ink ring-blue-ink/15",
+  yellow: "bg-yellow-bg text-yellow-ink ring-yellow-ink/15",
 };
 
 export function Tag({
@@ -35,7 +35,7 @@ export function Tag({
   return (
     <span
       title={title}
-      className={`inline-flex items-center rounded-[5px] px-1.5 py-0.5 text-xs leading-4 ${mono ? "font-mono tabular-nums" : ""} ${TONES[tone]}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium leading-4 ring-1 ring-inset ${mono ? "tabular-nums" : ""} ${TONES[tone]}`}
     >
       {children}
     </span>
@@ -88,7 +88,7 @@ function money(value: number, currency: string, compact: boolean): string {
   }
 }
 
-/** "$150K–$190K", "£50K", "$25–$31.50/hr"; null when no base pay is known. */
+/** "$150K-$190K", "£50K", "$25-$31.50/hr"; null when no base pay is known. */
 export function payLabel(job: Pick<Job, "comp_min" | "comp_max" | "comp_currency" | "comp_period">): string | null {
   if (!job.comp_period || job.comp_min == null) return null;
   const currency = job.comp_currency || "USD";
@@ -97,5 +97,5 @@ export function payLabel(job: Pick<Job, "comp_min" | "comp_max" | "comp_currency
   const hi = job.comp_max != null && Number(job.comp_max) > Number(job.comp_min)
     ? money(Number(job.comp_max), currency, compact)
     : null;
-  return `${hi ? `${lo}–${hi}` : lo}${PER[job.comp_period] ?? ""}`;
+  return `${hi ? `${lo}-${hi}` : lo}${PER[job.comp_period] ?? ""}`;
 }

@@ -6,5 +6,5 @@ export function expLabel(
   if (min === null) return null;
   if (max === null) return `${min}+ yrs`;
   if (min === max) return `${min} yrs`;
-  return `${min}–${max} yrs`;
+  return `${min}-${max} yrs`;
 }

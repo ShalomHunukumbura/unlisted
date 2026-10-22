@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
+import Logo from "@/components/Logo";
 import SiteNav from "@/components/SiteNav";
 import ScrollToTop from "@/components/ScrollToTop";
 import { SITE_URL } from "@/lib/seo";
@@ -16,13 +17,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-// Only the wordmark and page titles use it, so one weight is enough.
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
-  subsets: ["latin"],
-  weight: "400",
 });
 
 const description =
@@ -49,48 +43,80 @@ export const metadata: Metadata = {
 // The phone's status bar and Android's task switcher match the page.
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbfbfa" },
-    { media: "(prefers-color-scheme: dark)", color: "#191918" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f8fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0e14" },
   ],
 };
+
+const FOOTER = [
+  {
+    title: "Browse",
+    links: [
+      { href: "/", label: "All jobs" },
+      { href: "/roles", label: "By role" },
+      { href: "/locations", label: "By country" },
+      { href: "/companies", label: "Companies" },
+    ],
+  },
+  {
+    title: "Remote",
+    links: [
+      { href: "/remote", label: "Remote" },
+      { href: "/remote/anywhere", label: "Remote, anywhere" },
+      { href: "/remote/sri-lanka", label: "Remote, Sri Lanka" },
+    ],
+  },
+  {
+    title: "Unlisted",
+    links: [
+      { href: "/for-you", label: "For you" },
+      { href: "/blog", label: "Blog" },
+      { href: "/signin", label: "Sign in" },
+    ],
+  },
+];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas font-sans text-ink">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-10 focus:rounded-md focus:bg-ink-strong focus:px-3 focus:py-2 focus:text-sm focus:text-canvas"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[10px] focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:text-accent-fg"
         >
           Skip to jobs
         </a>
         <SiteNav />
         {children}
         <ScrollToTop />
-        <footer className="mt-auto border-t border-line">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">
-            <p className="max-w-xl text-pretty">
-              Pulled every two hours from public Greenhouse, Ashby, Lever and Recruitee job boards. Every listing
-              links to the employer&apos;s own posting; nothing is applied through this site.
-            </p>
-            <nav aria-label="Browse" className="flex flex-wrap gap-x-4 gap-y-1.5 sm:max-w-xs sm:justify-end">
-              {[
-                { href: "/remote", label: "Remote" },
-                { href: "/remote/anywhere", label: "Remote, anywhere" },
-                { href: "/remote/sri-lanka", label: "Remote, Sri Lanka" },
-                { href: "/roles", label: "By role" },
-                { href: "/locations", label: "By country" },
-                { href: "/companies", label: "Companies" },
-                { href: "/blog", label: "Blog" },
-              ].map((l) => (
-                <Link key={l.href} href={l.href} className="transition-colors hover:text-ink-strong">
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
+        <footer className="mt-auto border-t border-line bg-surface">
+          <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div className="max-w-sm">
+              <Link href="/" aria-label="Unlisted, home" className="inline-block rounded-md">
+                <Logo />
+              </Link>
+              <p className="mt-4 text-pretty text-sm leading-relaxed text-muted">
+                Pulled every two hours from public Greenhouse, Ashby, Lever and Recruitee job boards. Every listing
+                links to the employer&apos;s own posting; nothing is applied through this site.
+              </p>
+            </div>
+            {FOOTER.map((group) => (
+              <nav key={group.title} aria-label={group.title}>
+                <h2 className="text-[13px] font-semibold text-ink-strong">{group.title}</h2>
+                <ul className="mt-3 space-y-2.5 text-sm">
+                  {group.links.map((l) => (
+                    <li key={l.href}>
+                      <Link href={l.href} className="text-muted transition-colors hover:text-ink-strong">
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
           </div>
         </footer>
         <Analytics />
